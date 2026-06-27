@@ -59,10 +59,12 @@ npm run dev
 ## Roadmap (C-105 §11)
 
 - ✅ **Phase 0** — App customized from template (identity, domain, slug, legal pages)
-- ☐ **Phase 1** — Analytics dashboard MVP: `/api/bff/analytics/*` → `tec-analytics-service:4007`;
-  `/app` dashboard (payment volume · active users · top apps · error rates); merchant
-  data-isolation at BFF (C-105 §6); charts via `@yasser172/tec-ui`
+- ✅ **Phase 1** — Analytics dashboard MVP: `/api/bff/analytics/{overview,payments,users,events}`
+  → `tec-analytics-service` (via gateway); `/app` dashboard (overview cards + 30d payment
+  volume + recent events); inline bar chart (tec-ui charts pending C-105 §5)
 - ☐ **Phase 2** — Parity (Drift Detection CI gate) + governance updates (C-105 → Current)
+- ☐ **Backend gap** — merchant data-isolation (C-105 §6) needs `tec-analytics-service` to
+  scope by `merchantId`; today the service returns platform-level aggregates
 - ☐ **Deferred/ops** — Pi Portal registration · Supabase RLS · ALERT integration
 
 ---

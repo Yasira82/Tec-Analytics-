@@ -10,6 +10,15 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
+- **Phase 1 — Analytics dashboard MVP (C-105 §11 P1-1):**
+  - BFF routes `/api/bff/analytics/{overview,payments,users,events}` — server-only
+    proxy to `tec-analytics-service` via the gateway (`forwardAnalyticsGet`), Bearer
+    token + `x-internal-key`, fail-closed (401 without session).
+  - `/app` replaced the template demo buy page with the platform dashboard:
+    overview cards (events/payments/users), 30-day payment volume + inline bar chart,
+    recent events — with loading/error/retry states (C-96, no silent failures).
+  - `lib-client/analytics/useAnalytics` typed hooks mirroring the service shapes.
+  - +6 BFF tests (auth, gateway path, internal-key, status passthrough, limit clamp).
 - **Phase 0 — app customized from `tec-template-base` v2 (C-105):** set app
   identity (`tec-analytics`, domain `analytics.tecosystem.app`, APP_SOURCE
   `analytics`), SSO audiences, page/legal metadata, and Analytics-specific

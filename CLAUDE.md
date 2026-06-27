@@ -131,12 +131,14 @@ src/app/privacy · terms                    Pi Portal legal pages
 
 ```
 ✅ Phase 0 — App customized from template (identity, domain, slug, legal pages)
-□  Phase 1 — Analytics dashboard MVP
-     · /api/bff/analytics/* BFF routes → tec-analytics-service:4007 (via gateway)
-     · /app dashboard: payment volume · active users · top apps · error rates (P1-1)
-     · merchant data-isolation at BFF (C-105 §6) · charts via @yasser172/tec-ui
+✅ Phase 1 — Analytics dashboard MVP
+     · /api/bff/analytics/{overview,payments,users,events} → tec-analytics-service (via gateway)
+     · /app dashboard: overview cards + payment volume (30d) + recent events (P1-1)
+     · inline bar chart (Pi-Browser safe; tec-ui charts pending C-105 §5)
 □  Phase 2 — Parity + governance: Drift Detection CI gate · update C-105 → Current,
      rollout-registry to-build → live, C-01 Pi App ID once registered
+□  Backend gap — tec-analytics-service is PLATFORM-level (no merchantId scoping). Merchant
+     data-isolation (C-105 §6) needs the SERVICE to filter by merchant before the BFF can.
 □  Deferred/ops — Pi Portal registration · Supabase RLS (P2-1) · ALERT integration (P2-2)
 ```
 
