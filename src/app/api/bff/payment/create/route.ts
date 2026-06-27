@@ -9,8 +9,8 @@ import { z } from 'zod';
 // ⚠️ DO NOT add a CSRF check here — it 403's legit Mode-2 payments in Pi Browser. (KB C-12 §11)
 const GW = process.env.API_GATEWAY_URL ?? '';
 
-// TODO(new app): set your app slug — tags the payment in tec-payment-service.
-const APP_SOURCE = 'app';
+// app slug — tags the payment in tec-payment-service.
+const APP_SOURCE = 'analytics';
 
 const CreateSchema = z.object({
   amount:   z.coerce.number().positive(),

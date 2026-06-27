@@ -1,15 +1,34 @@
-# TEC Domain App Template — Claude Code Instructions
+# TEC Analytics — Claude Code Instructions
 
-## What This Repo Is
+> ⚡ **SESSION START — أول حاجة:** اقرأ `knowledge-base/C-02___CURRENT_STATE_.md` من `yasira82/tec-knowledge-base` (branch: `main`) — ده مصدر الحقيقة للوضع الحالي. لا تعتمد على الذاكرة أو الملخص.
+> **App charter:** `knowledge-base/C-105___ANALYTICS_INSTITUTIONAL_CHARTER.md`.
 
-The **golden starter template** for a new app in the TEC Federated Platform.
-It ships a correct, Portal-ready skeleton: Hub SSO, dual-mode Pi payments,
-CSRF, legal pages, and CI policy guards. Clone it, run the "New app setup"
-checklist below, and you have a compliant app — no missing pieces.
+---
 
-**Reference of record:** `yasira82/tec-knowledge-base` — especially
-`C-12_Dual_Mode_Payment.md` (payment + anti-regression) and
-`audits/PORTAL_SUBMISSION_RUNBOOK_*.md`.
+## What This App Is
+
+**System of Intelligence** for the TEC Federated Platform — the frontend dashboard
+that turns raw economic activity (payments, orders, logins) into structured
+intelligence: metrics, trends, and signals for merchants and platform admins.
+
+This repo is the **Next.js frontend**. The intelligence backend is
+`tec-analytics-service` (Port 4007, in `tec-core-backend`), consumed through the
+API Gateway via `/api/bff/analytics/*`.
+
+**Current Phase: Phase 0 — built from `tec-template-base` v2.** Charter C-105 is
+`[Planned State]`; building this app moves it toward `[Current State]`.
+
+---
+
+## Pi App Identity
+
+| Field | Value |
+|-------|-------|
+| **App** | TEC Analytics |
+| **Domain** | `https://analytics.tecosystem.app` |
+| **Pi App ID** | `TBD` — register in Pi Developer Portal |
+| **APP_SOURCE slug** | `analytics` |
+| **PI_SANDBOX** | `false` (Mainnet) |
 
 ---
 
@@ -27,10 +46,10 @@ checklist below, and you have a compliant app — no missing pieces.
 CSRF is enforced in **`middleware.ts`** and **nowhere else**: a request is trusted
 if the double-submit token matches **OR** it is first-party (Origin host === Host /
 `*.tecosystem.app`).
-- ❌ **NEVER** add a CSRF check inside a route handler (`csrfCookie !== csrfHeader`
-  → 403). It 403's legit Mode-2 payments in Pi Browser (drops `sameSite=None`
-  cookies). The CI `payment-policy` job fails the build if you do. (KB C-12 §11)
-- ✅ A route may *forward* `x-csrf-token` to a downstream call; it must never *validate* it.
+- ❌ **NEVER** add a CSRF check inside a route handler — it 403's legit Mode-2
+  payments in Pi Browser (drops `sameSite=None` cookies). CI `payment-policy` fails
+  the build if you do. (KB C-12 §11)
+- ✅ A route may *forward* `x-csrf-token` downstream; it must never *validate* it.
 
 ### ADR-007 — Dual-mode payment (Pi foreign session)
 Every buy handler MUST guard before touching `window.Pi`:
@@ -43,6 +62,9 @@ if (isHubNavigation() || !(window as any).Pi || !piReady) {
 }
 // Mode 2: standalone — createPaymentRecord() then createU2APayment() (src/lib/pi-payment.ts)
 ```
+> **Note:** Analytics monetization (C-105 §7) is subscription-based (Merchant Pro /
+> Enterprise) via Hub. The payment scaffold is kept for compliance + optionality;
+> if a direct buy flow is added, it MUST keep the ADR-007 guard.
 
 ### ADR-009 — Unified payment contract
 `amount` is a **number**; gateway path is **`/api/payment/*`** (singular); the only
@@ -61,47 +83,75 @@ Identity is derived from the `tec_user` cookie server-side — **never from the 
 
 ---
 
-## What's included
+## Analytics-Specific Rules (C-105)
+
+### Data ownership boundary
+Analytics **OWNS**: metric aggregation, trend/signal computation, dashboard delivery.
+Analytics does **NOT OWN**: transaction truth (`tec-payment-service`), order truth
+(`tec-commerce-service`), identity truth (`tec-auth-service`). Read those as
+**ID-only references** — never re-derive or mutate them here.
+
+### Merchant data isolation (C-105 §6) — enforce at BFF layer
+- A merchant sees **ONLY their own** metrics — derive `merchantId` from the
+  `tec_user` session cookie, **never** from a query param or request body.
+- Platform-admin aggregate access requires AdminActor + audit trail.
+- No cross-merchant data leakage. Fail closed (P6): no session → no data.
+
+### Consistency model
+Analytics is **eventual consistency** (C-47 §6) — aggregations tolerate lag. Never
+present analytics figures as financial truth; the source of truth is the owning service.
+
+### Logging (Invariant #9)
+Analytics data is non-sensitive **but still logged** — every query carries actor
+context. Use `log.*` / `reportError` (src/lib/observability), never silent catches.
+
+---
+
+## What's included (from template v2)
 
 ```
 middleware.ts                              CSRF (double-submit OR Origin) + page guard
 src/app/api/auth/sso-callback/route.ts     Hub SSO landing (open-redirect-safe)
 src/app/api/auth/refresh/route.ts          token refresh
 src/app/api/bff/payment/{create,approve,complete,resolve-incomplete}/route.ts
-src/app/api/bff/items/route.ts             example domain route (copy this pattern)
-src/app/api/health/route.ts                health endpoint (C-92/C-96) — fail-safe, public, never 500s
+src/app/api/bff/items/route.ts             example domain route (copy for /analytics/*)
+src/app/api/health/route.ts                health endpoint (C-92/C-96) — never 500s
 src/lib/pi-payment.ts                      createPaymentRecord + createU2APayment
-src/lib/pi/PiRuntime.ts                    PAL — single choke-point for window.Pi.* (R1)
+src/lib/pi/PiRuntime.ts                    PAL — single choke-point for window.Pi.*
 src/lib/pi/PiCircuitBreaker.ts             CLOSED→OPEN→HALF_OPEN (3 fails → 60s)
-src/lib/flags.ts                           feature flags (NEXT_PUBLIC_FLAG_*) + useFlag
-src/lib/observability/logger.ts            structured JSON logger (log.info/warn/error) — no silent failures (C-96)
-src/lib/observability/reportError.ts       Sentry-ready error reporter (single swap-point)
-src/app/privacy/page.tsx · terms/page.tsx  Pi Portal legal pages
-src/styles/tec-design-tokens.css           import in app/layout.tsx
-.github/workflows/ci.yml                   payment-policy + CSRF guard + lint/typecheck/test/build
+src/lib/flags.ts                           feature flags (NEXT_PUBLIC_FLAG_*)
+src/lib/observability/{logger,reportError}.ts   structured logs (C-96) + Sentry hook
+src/app/privacy · terms                    Pi Portal legal pages
+.github/workflows/                         payment-policy + CSRF guard + lint/typecheck/test/build + e2e
 ```
-
-**v2 (production-ready by default):** every new app ships
-- `/api/health` — uniform C-92 signal (platform health runtime + observability scrape + SLO/runtime-evidence loop);
-- structured `log` + `reportError` — use `log.error`/`reportError` in catch blocks (a silent error handler is an invisible failure, C-96; `reportError` is the one place to wire Sentry per app);
-- `PiRuntime` (PAL) + `PiCircuitBreaker` — never call `window.Pi.*` directly; go through PiRuntime so an SDK change is a one-file fix (R1) and flapping is contained;
-- `flags.ts` — feature flags from day one (`NEXT_PUBLIC_FLAG_<NAME>`);
-- coverage gate — `npm run test:coverage` (add devDep `@vitest/coverage-v8`; 60% floor, raise as the app grows).
 
 ---
 
-## New app setup checklist
+## Roadmap (C-105 §11)
 
 ```
-□ package.json: set "name"
-□ middleware.ts: adjust PROTECTED_ROUTES
-□ sso-callback/route.ts: set ALLOWED_AUDIENCES + DEFAULT_REDIRECT to your domain
-□ src/lib/pi-payment.ts + payment/create: set APP_SOURCE slug
-□ privacy/page.tsx + terms/page.tsx: set APP / DOMAIN / governing law / contacts
-□ Add ADR-007 isHubNavigation() guard to every buy handler
-□ .env: API_GATEWAY_URL · INTERNAL_SECRET · SSO_SECRET · NEXT_PUBLIC_PI_APP_ID · PI_SANDBOX=false (prod)
-□ Pi Developer Portal: register domain + App ID; set /privacy + /terms URLs
-□ Verify a real Pi payment Mode 1 (via Hub) AND Mode 2 (standalone)
+✅ Phase 0 — App customized from template (identity, domain, slug, legal pages)
+□  Phase 1 — Analytics dashboard MVP
+     · /api/bff/analytics/* BFF routes → tec-analytics-service:4007 (via gateway)
+     · /app dashboard: payment volume · active users · top apps · error rates (P1-1)
+     · merchant data-isolation at BFF (C-105 §6) · charts via @yasser172/tec-ui
+□  Phase 2 — Parity + governance: Drift Detection CI gate · update C-105 → Current,
+     rollout-registry to-build → live, C-01 Pi App ID once registered
+□  Deferred/ops — Pi Portal registration · Supabase RLS (P2-1) · ALERT integration (P2-2)
+```
+
+---
+
+## Development Commands
+
+```bash
+npm run dev            # dev server
+npm run build          # production build
+npm run lint           # ESLint
+npm run typecheck      # tsc --noEmit (strict)
+npm run test           # vitest
+npm run test:coverage  # vitest + coverage (60% floor)
+npm run test:e2e       # Playwright
 ```
 
 ---
@@ -111,18 +161,31 @@ src/styles/tec-design-tokens.css           import in app/layout.tsx
 - Do NOT validate CSRF in a route handler — middleware only (CI blocks it)
 - Do NOT send `amount` as a string, or use `/payments` / `x-service-secret`
 - Do NOT skip the ADR-007 `isHubNavigation()` guard before `window.Pi`
-- Do NOT store tokens in localStorage; do NOT derive identity from the body
+- Do NOT store tokens in localStorage; do NOT derive identity (or `merchantId`) from the body
 - Do NOT add `NEXT_PUBLIC_*` for internal service URLs or `INTERNAL_SECRET`
-- Do NOT use an open `redirect` param without the same-origin guard (open redirect)
+- Do NOT present analytics aggregates as financial truth — owning service is source of truth
+- Do NOT leak cross-merchant data — isolate by session `merchantId` at the BFF layer
 
 ---
 
 ## Commit Convention
 
 ```
-feat(scope):  new feature      fix(payment): payment flow fix (test carefully)
-fix(scope):   bug fix          chore(scope): build/config
+feat(analytics):  new dashboard / metric feature
+fix(analytics):   bug fix          fix(payment): payment flow fix (test carefully)
+chore(scope):     build/config
 ```
+
+---
+
+## Knowledge Base Reference
+→ `yasira82/tec-knowledge-base` (branch: `main`)
+→ **Current State: `knowledge-base/C-02___CURRENT_STATE_.md`** — اقرأه أول كل session
+→ App charter: `knowledge-base/C-105___ANALYTICS_INSTITUTIONAL_CHARTER.md`
+→ Dual-Mode Payment + anti-regression: `knowledge-base/C-12_Dual_Mode_Payment.md`
+→ Payment ownership (ADR-007): `knowledge-base/C-76___ADR-007.md`
+→ Event governance (Redis Streams): `knowledge-base/C-70___EVENT_GOVERNANCE_SPEC.md`
+→ Domain ownership matrix: `knowledge-base/C-68___DOMAIN_OWNERSHIP_MATRIX.md`
 
 ---
 

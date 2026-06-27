@@ -7,9 +7,9 @@ import { TEC_COLORS }              from '@yasser172/tec-ui';
 
 // ── تعديل حسب الـ domain ──────────────────────────────────
 const HUB_URL    = process.env.NEXT_PUBLIC_HUB_URL    ?? 'https://hub.tecosystem.app';
-const APP_URL    = process.env.NEXT_PUBLIC_APP_URL    ?? 'https://app.tecosystem.app';
-const APP_NAME   = process.env.NEXT_PUBLIC_APP_NAME   ?? 'TEC App';
-const APP_EMOJI  = process.env.NEXT_PUBLIC_APP_EMOJI  ?? '🔷';
+const APP_URL    = process.env.NEXT_PUBLIC_APP_URL    ?? 'https://analytics.tecosystem.app';
+const APP_NAME   = process.env.NEXT_PUBLIC_APP_NAME   ?? 'TEC Analytics';
+const APP_EMOJI  = process.env.NEXT_PUBLIC_APP_EMOJI  ?? '📊';
 
 export default function HomePage() {
   const { isAuthenticated, isLoading } = usePiAuth();

@@ -1,12 +1,26 @@
-# TEC Domain App Template
+# TEC Analytics
 
-The **golden starter template** for a new app in the **TEC Federated Platform**.
-It ships a correct, Portal-ready skeleton — Hub SSO, dual-mode Pi payments, CSRF,
-legal pages, observability, and CI policy guards — so a new app is compliant from
-commit zero.
+**System of Intelligence** for the **TEC Federated Platform** — the dashboard app
+that turns raw economic activity (payments, orders, logins) into structured
+intelligence: metrics, trends, and signals for merchants and platform admins.
 
-> Full architecture rules and rationale live in [`CLAUDE.md`](./CLAUDE.md).
-> Reference of record: `yasira82/tec-knowledge-base` (`C-12_Dual_Mode_Payment.md`).
+This repo is the **Next.js frontend**. The intelligence backend is
+`tec-analytics-service` (Port 4007, in `tec-core-backend`), consumed through the
+API Gateway via `/api/bff/analytics/*`.
+
+> Architecture rules and rationale live in [`CLAUDE.md`](./CLAUDE.md).
+> Charter of record: `yasira82/tec-knowledge-base` → `C-105___ANALYTICS_INSTITUTIONAL_CHARTER.md`.
+
+---
+
+## Identity
+
+| Field | Value |
+|-------|-------|
+| Domain | `https://analytics.tecosystem.app` |
+| Pi App ID | `TBD` (register in Pi Developer Portal) |
+| APP_SOURCE | `analytics` |
+| PI_SANDBOX (prod) | `false` |
 
 ---
 
@@ -21,8 +35,6 @@ commit zero.
 ## Quick start
 
 ```bash
-git clone <this-repo> tec-<domain>
-cd tec-<domain>
 cp .env.example .env.local
 npm install --legacy-peer-deps
 npm run dev
@@ -30,23 +42,7 @@ npm run dev
 
 ---
 
-## New-app setup checklist
-
-```
-□ package.json: set "name"
-□ middleware.ts: adjust PROTECTED_ROUTES
-□ sso-callback/route.ts: set ALLOWED_AUDIENCES + DEFAULT_REDIRECT to your domain
-□ src/lib/pi-payment.ts + payment/create: set APP_SOURCE slug
-□ privacy/page.tsx + terms/page.tsx: set APP / DOMAIN / governing law / contacts
-□ Add ADR-007 isHubNavigation() guard to every buy handler
-□ .env: API_GATEWAY_URL · INTERNAL_SECRET · SSO_SECRET · NEXT_PUBLIC_PI_APP_ID · PI_SANDBOX=false (prod)
-□ Pi Developer Portal: register domain + App ID; set /privacy + /terms URLs
-□ Verify a real Pi payment Mode 1 (via Hub) AND Mode 2 (standalone)
-```
-
----
-
-## What's included
+## What's included (template v2 core)
 
 | Area | Files |
 |------|-------|
@@ -60,22 +56,14 @@ npm run dev
 
 ---
 
-## Files you change per domain
+## Roadmap (C-105 §11)
 
-| File | Change |
-|------|--------|
-| `package.json` | `"name": "tec-<domain>"` |
-| `src/app/layout.tsx` | title + description |
-| `src/app/page.tsx` | login page |
-| `src/app/app/` | domain pages |
-| `src/app/api/bff/` | domain BFF routes |
-| `.env.local` | domain secrets |
-
-## Files you keep (the compliant core)
-
-`middleware.ts` · `src/lib/bff/createHandler.ts` · `src/lib-client/pi/*` ·
-`src/lib/pi/*` · `src/lib/observability/*` · `src/components/ErrorBoundary.tsx` ·
-`next.config.js` · `Dockerfile`
+- ✅ **Phase 0** — App customized from template (identity, domain, slug, legal pages)
+- ☐ **Phase 1** — Analytics dashboard MVP: `/api/bff/analytics/*` → `tec-analytics-service:4007`;
+  `/app` dashboard (payment volume · active users · top apps · error rates); merchant
+  data-isolation at BFF (C-105 §6); charts via `@yasser172/tec-ui`
+- ☐ **Phase 2** — Parity (Drift Detection CI gate) + governance updates (C-105 → Current)
+- ☐ **Deferred/ops** — Pi Portal registration · Supabase RLS · ALERT integration
 
 ---
 
@@ -85,7 +73,7 @@ npm run dev
 npm run dev            # dev server
 npm run build          # production build
 npm run lint           # ESLint
-npm run typecheck      # tsc --noEmit (strict + noUncheckedIndexedAccess)
+npm run typecheck      # tsc --noEmit (strict)
 npm run test           # vitest
 npm run test:coverage  # vitest + coverage (60% floor)
 npm run test:e2e       # Playwright
