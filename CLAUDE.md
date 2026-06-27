@@ -133,7 +133,7 @@ src/app/privacy · terms                    Pi Portal legal pages
 ✅ Phase 0 — App customized from template (identity, domain, slug, legal pages)
 ✅ Phase 1 — Analytics dashboard MVP
      · /api/bff/analytics/{overview,payments,users,events} → tec-analytics-service (via gateway)
-     · /app dashboard: overview cards + payment volume (30d) + recent events (P1-1)
+     · /app dashboard: overview cards + payment volume (30d) + recent events
      · inline bar chart (Pi-Browser safe; tec-ui charts pending C-105 §5)
 □  Phase 2 — Parity + governance: Drift Detection CI gate · update C-105 → Current,
      rollout-registry to-build → live, C-01 Pi App ID once registered

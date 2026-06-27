@@ -1,6 +1,6 @@
 'use client';
 
-// TEC Analytics — platform intelligence dashboard (C-105 §11 P1-1).
+// TEC Analytics — platform intelligence dashboard (C-105 — standalone surface; see §5 / §11a).
 // Reads aggregated metrics from tec-analytics-service via /api/bff/analytics/*.
 // Platform-level + eventual consistency — never presented as financial truth.
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';

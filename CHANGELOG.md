@@ -10,7 +10,7 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
-- **Phase 1 — Analytics dashboard MVP (C-105 §11 P1-1):**
+- **Phase 1 — Analytics dashboard MVP (C-105 — standalone surface, §5 / §11a):**
   - BFF routes `/api/bff/analytics/{overview,payments,users,events}` — server-only
     proxy to `tec-analytics-service` via the gateway (`forwardAnalyticsGet`), Bearer
     token + `x-internal-key`, fail-closed (401 without session).
