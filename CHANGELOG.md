@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the TEC Domain App Template are documented here.
+All notable changes to TEC Analytics are documented here.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 Versioning: [Semantic Versioning](https://semver.org/)
@@ -10,11 +10,23 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
-- Packaging hygiene: `LICENSE` (MIT), expanded `README`, this CHANGELOG,
-  and Dependabot config (`npm` + `github-actions`, weekly).
+- **Phase 1 — Analytics dashboard MVP (C-105 — standalone surface, §5 / §11a):**
+  - BFF routes `/api/bff/analytics/{overview,payments,users,events}` — server-only
+    proxy to `tec-analytics-service` via the gateway (`forwardAnalyticsGet`), Bearer
+    token + `x-internal-key`, fail-closed (401 without session).
+  - `/app` replaced the template demo buy page with the platform dashboard:
+    overview cards (events/payments/users), 30-day payment volume + inline bar chart,
+    recent events — with loading/error/retry states (C-96, no silent failures).
+  - `lib-client/analytics/useAnalytics` typed hooks mirroring the service shapes.
+  - +6 BFF tests (auth, gateway path, internal-key, status passthrough, limit clamp).
+- **Phase 0 — app customized from `tec-template-base` v2 (C-105):** set app
+  identity (`tec-analytics`, domain `analytics.tecosystem.app`, APP_SOURCE
+  `analytics`), SSO audiences, page/legal metadata, and Analytics-specific
+  `CLAUDE.md` + `README` (data-ownership boundary, merchant isolation, roadmap).
 
-### Changed
-- `tsconfig`: enabled `noUncheckedIndexedAccess` (stricter index access).
+### Inherited (template hygiene)
+- Packaging: `LICENSE` (MIT), CHANGELOG, Dependabot (`npm` + `github-actions`, weekly).
+- `tsconfig`: `noUncheckedIndexedAccess` (stricter index access).
 
 ## [2.0.0] - 2026-06 — production-ready by default
 

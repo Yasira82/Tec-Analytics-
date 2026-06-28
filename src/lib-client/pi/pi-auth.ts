@@ -20,7 +20,7 @@ declare global {
 const ERRORS = {
   NOT_PI_BROWSER:
     'Please open the app inside Pi Browser to authenticate.\n' +
-    'Instructions: Open Pi Network app → Apps → TEC App',
+    'Instructions: Open Pi Network app → Apps → TEC Analytics',
   SDK_LOAD_FAILED:
     'Pi SDK failed to load. Please check your internet connection and try again.',
   SDK_INIT_FAILED:

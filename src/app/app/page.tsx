@@ -1,70 +1,150 @@
 'use client';
 
-// Example protected page demonstrating the canonical ADR-007 dual-mode buy flow.
-// Copy this handler into your real product/checkout components.
-import { useEffect, useState } from 'react';
-import { TEC_COLORS } from '@yasser172/tec-ui';
+// TEC Analytics — platform intelligence dashboard (C-105 — standalone surface; see §5 / §11a).
+// Reads aggregated metrics from tec-analytics-service via /api/bff/analytics/*.
+// Platform-level + eventual consistency — never presented as financial truth.
+import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
 import {
-  isHubNavigation,
-  redirectToHubPayment,
-  createPaymentRecord,
-  createU2APayment,
-} from '@/lib/pi-payment';
+  useOverview,
+  usePaymentAnalytics,
+  useRecentEvents,
+  type DailyMetric,
+  type AsyncState,
+} from '@/lib-client/analytics/useAnalytics';
 
-// TODO(new app): replace with real items from your BFF (/api/bff/items).
-const DEMO_ITEM = { id: 'demo-1', name: 'Demo Item', price: 1 };
+const card = {
+  background:   TEC_COLORS.surface,
+  border:       `1px solid ${TEC_COLORS.border}`,
+  borderRadius: 16,
+  padding:      '20px 22px',
+} as const;
 
-export default function AppHomePage() {
-  const [piReady, setPiReady] = useState(false);
-  const [status, setStatus]   = useState<string>('');
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={card}>
+      <div style={{ fontSize: 12, color: TEC_COLORS.subtext, letterSpacing: 0.5, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 900, color: TEC_COLORS.gold, marginTop: 6 }}>{value}</div>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if ((window as { __TEC_PI_READY?: boolean }).__TEC_PI_READY) setPiReady(true);
-    const onReady = () => setPiReady(true);
-    window.addEventListener('tec-pi-ready', onReady);
-    return () => window.removeEventListener('tec-pi-ready', onReady);
-  }, []);
+/** Minimal inline bar chart (no chart lib — Pi-Browser safe; tec-ui charts pending C-105 §5). */
+function BarChart({ series }: { series: { label: string; value: number }[] }) {
+  const max = series.reduce((m, s) => Math.max(m, s.value), 0) || 1;
+  if (series.length === 0) {
+    return <div style={{ color: TEC_COLORS.subtext, fontSize: 13 }}>No data yet.</div>;
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140, marginTop: 8 }}>
+      {series.map((s, i) => (
+        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div
+            title={`${s.label}: ${s.value}`}
+            style={{
+              width: '100%',
+              height: `${Math.round((s.value / max) * 110)}px`,
+              minHeight: 2,
+              background: `linear-gradient(180deg, ${TEC_COLORS.gold}, ${TEC_COLORS.goldDark})`,
+              borderRadius: '4px 4px 0 0',
+            }}
+          />
+          <div style={{ fontSize: 9, color: TEC_COLORS.subtext, whiteSpace: 'nowrap' }}>{s.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  const handleBuy = async () => {
-    const { id, name, price } = DEMO_ITEM;
+function Section({ title, state, children }: {
+  title: string; state: AsyncState<unknown>; children: React.ReactNode;
+}) {
+  return (
+    <section style={{ marginTop: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, color: TEC_COLORS.text, margin: 0 }}>{title}</h2>
+        {state.loading && <span style={{ fontSize: 12, color: TEC_COLORS.subtext }}>loading…</span>}
+        {state.error && (
+          <button onClick={state.reload}
+            style={{ fontSize: 12, color: TEC_COLORS.error, background: 'none', border: `1px solid ${TEC_COLORS.error}`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer' }}>
+            {state.error} · retry
+          </button>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
 
-    // ── ADR-007 guard — ALWAYS keep this before touching window.Pi ──
-    if (isHubNavigation() || !(window as { Pi?: unknown }).Pi || !piReady) {
-      redirectToHubPayment({ amount: price, itemId: id, memo: name });   // Mode 1
-      return;
-    }
+// recentMetrics come newest-first; show oldest→newest for a left-to-right timeline.
+const toSeries = (metrics: DailyMetric[], field: keyof DailyMetric): { label: string; value: number }[] =>
+  [...metrics].reverse().map((m) => ({
+    label: typeof m.date === 'string' ? m.date.slice(5, 10) : '',
+    value: Number(m[field] ?? 0),
+  }));
 
-    // ── Mode 2: standalone Pi Browser payment ──
-    setStatus('Creating payment…');
-    const internalId = await createPaymentRecord(price, id, name);
-    if (!internalId) { setStatus('Could not start payment.'); return; }
+export default function AnalyticsDashboard() {
+  const overview = useOverview();
+  const payments = usePaymentAnalytics();
+  const events   = useRecentEvents(15);
 
-    setStatus('Awaiting Pi approval…');
-    const result = await createU2APayment(price, name, { item_id: id }, internalId);
-    setStatus(
-      result.success ? `✅ Paid — txid ${result.txid}` :
-      result.status === 'cancelled' ? 'Payment cancelled.' :
-      `❌ ${result.message ?? 'Payment failed.'}`,
-    );
-    // On success, create the domain record: POST /api/bff/items { ..., payment_id: internalId }
-  };
+  const o = overview.data;
 
   return (
-    <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: '#e7e7ea', padding: 32, fontFamily: 'system-ui, sans-serif' }}>
-      <h1 style={{ color: TEC_COLORS.gold }}>TEC App</h1>
-      <p style={{ opacity: 0.7 }}>Pi SDK: {piReady ? 'ready' : 'loading…'}</p>
+    <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: TEC_COLORS.text, padding: '32px 22px', fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <span style={{ fontSize: 30 }}>📊</span>
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 900, color: TEC_COLORS.gold, margin: 0 }}>TEC Analytics</h1>
+            <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>Platform intelligence · eventual consistency</p>
+          </div>
+        </header>
 
-      <div style={{ marginTop: 24, padding: 20, background: TEC_COLORS.surface, borderRadius: 12, maxWidth: 360 }}>
-        <h2 style={{ margin: 0 }}>{DEMO_ITEM.name}</h2>
-        <p style={{ color: TEC_COLORS.gold }}>π {DEMO_ITEM.price}</p>
-        <button
-          onClick={handleBuy}
-          style={{ background: TEC_COLORS.goldDark, color: '#020205', border: 'none', borderRadius: 8, padding: '10px 18px', fontWeight: 700, cursor: 'pointer' }}
-        >
-          Buy with Pi
-        </button>
-        {status && <p style={{ marginTop: 12 }}>{status}</p>}
+        {/* Overview cards */}
+        <Section title="Overview" state={overview}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+            <StatCard label="Total events" value={(o?.totalEvents   ?? 0).toLocaleString()} />
+            <StatCard label="Payments"     value={(o?.totalPayments ?? 0).toLocaleString()} />
+            <StatCard label="Users"        value={(o?.totalUsers    ?? 0).toLocaleString()} />
+          </div>
+        </Section>
+
+        {/* Payment volume */}
+        <Section title="Payments (last 30 days)" state={payments}>
+          <div style={{ ...card }}>
+            <div style={{ display: 'flex', gap: 28, marginBottom: 4 }}>
+              <div>
+                <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Total volume</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.gold }}>{formatPi(payments.data?.totalVolume ?? 0)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Count</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.text }}>{(payments.data?.totalCount ?? 0).toLocaleString()}</div>
+              </div>
+            </div>
+            <BarChart series={toSeries(payments.data?.metrics ?? [], 'total_volume')} />
+          </div>
+        </Section>
+
+        {/* Recent events */}
+        <Section title="Recent events" state={events}>
+          <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+            {(events.data ?? []).length === 0 && !events.loading ? (
+              <div style={{ padding: 18, color: TEC_COLORS.subtext, fontSize: 13 }}>No recent events.</div>
+            ) : (
+              (events.data ?? []).map((ev, i) => (
+                <div key={ev.id ?? i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderTop: i === 0 ? 'none' : `1px solid ${TEC_COLORS.border}` }}>
+                  <span style={{ fontSize: 13, color: TEC_COLORS.text, fontWeight: 600 }}>{ev.type}</span>
+                  <span style={{ fontSize: 11, color: TEC_COLORS.subtext }}>{ev.created_at ? formatDate(ev.created_at) : ''}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </Section>
+
+        <p style={{ marginTop: 32, fontSize: 11, color: TEC_COLORS.subtext }}>
+          Source of truth for transactions is tec-payment-service; figures here are aggregates and may lag.
+        </p>
       </div>
     </main>
   );
