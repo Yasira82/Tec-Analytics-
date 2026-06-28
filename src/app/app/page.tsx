@@ -7,6 +7,7 @@
 // C-122 §5 disclosure boundary (enforced server-side; mirrored here as UX):
 //   platform aggregates are SOVEREIGN → admin only. A non-admin sees only the
 //   own-scope "Recent events" section; the platform sections are not fetched.
+import { useState } from 'react';
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
 import { usePiAuth } from '@yasser172/tec-auth';
 import {
@@ -94,12 +95,37 @@ const toSeries = (metrics: DailyMetric[], field: keyof DailyMetric): { label: st
 // Platform aggregates = SOVEREIGN (C-122 §5). This component is mounted ONLY for
 // admins, so a non-admin never fires the platform endpoints (no 403 noise) —
 // the server remains the authority (it 403s regardless).
+function WindowToggle({ days, setDays }: { days: number; setDays: (d: number) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 22 }}>
+      {[7, 30].map((d) => {
+        const active = d === days;
+        return (
+          <button key={d} onClick={() => setDays(d)}
+            style={{
+              fontSize: 12, padding: '4px 12px', borderRadius: 8, cursor: 'pointer', fontWeight: active ? 700 : 400,
+              border: `1px solid ${active ? TEC_COLORS.gold : TEC_COLORS.border}`,
+              background: active ? TEC_COLORS.gold : 'none',
+              color: active ? '#0a0800' : TEC_COLORS.subtext,
+            }}>
+            {d}d
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PlatformSections() {
   const overview = useOverview();
   const payments = usePaymentAnalytics();
   const users    = useUserAnalytics();
-  const o = overview.data;
-  const um = users.data?.metrics ?? [];
+  const [days, setDays] = useState(30);
+  const o  = overview.data;
+  // metrics arrive newest-first; slice to the selected window. Window totals are
+  // recomputed from the slice so the headline numbers match the chart (honest).
+  const pm = (payments.data?.metrics ?? []).slice(0, days);
+  const um = (users.data?.metrics ?? []).slice(0, days);
   return (
     <>
       <Section title="Overview" state={overview}>
@@ -110,28 +136,30 @@ function PlatformSections() {
         </div>
       </Section>
 
-      <Section title="Payments (last 30 days)" state={payments}>
+      <WindowToggle days={days} setDays={setDays} />
+
+      <Section title={`Payments (last ${days} days)`} state={payments}>
         <div style={{ ...card }}>
           <div style={{ display: 'flex', gap: 28, marginBottom: 4 }}>
             <div>
-              <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Total volume</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.gold }}>{formatPi(payments.data?.totalVolume ?? 0)}</div>
+              <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Volume</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.gold }}>{formatPi(sumField(pm, 'total_volume'))}</div>
             </div>
             <div>
               <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Count</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.text }}>{(payments.data?.totalCount ?? 0).toLocaleString()}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.text }}>{sumField(pm, 'total_payments').toLocaleString()}</div>
             </div>
           </div>
-          <BarChart series={toSeries(payments.data?.metrics ?? [], 'total_volume')} />
+          <BarChart series={toSeries(pm, 'total_volume')} />
         </div>
       </Section>
 
-      <Section title="Users & KYC (last 30 days)" state={users}>
+      <Section title={`Users & KYC (last ${days} days)`} state={users}>
         <div style={{ ...card }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 8 }}>
-            <StatCard label="New users"     value={sumField(um, 'new_users').toLocaleString()} />
-            <StatCard label="Active (24h)"  value={Number(um[0]?.active_users ?? 0).toLocaleString()} />
-            <StatCard label="KYC verified"  value={sumField(um, 'kyc_verified').toLocaleString()} />
+            <StatCard label="New users"    value={sumField(um, 'new_users').toLocaleString()} />
+            <StatCard label="Active (24h)" value={Number(um[0]?.active_users ?? 0).toLocaleString()} />
+            <StatCard label="KYC verified" value={sumField(um, 'kyc_verified').toLocaleString()} />
           </div>
           <BarChart series={toSeries(um, 'new_users')} />
         </div>
