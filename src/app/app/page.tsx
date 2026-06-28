@@ -155,20 +155,34 @@ function AdminOnlyNotice() {
 }
 
 export default function AnalyticsDashboard() {
-  const { user, isLoading } = usePiAuth();
+  const { user, isLoading, logout } = usePiAuth();
   const isAdmin = user?.role === 'admin';
   const events  = useRecentEvents(15);
 
   return (
     <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: TEC_COLORS.text, padding: '32px 22px', fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif' }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <span style={{ fontSize: 30 }}>📊</span>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 900, color: TEC_COLORS.gold, margin: 0 }}>TEC Analytics</h1>
-            <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>
-              {isAdmin ? 'Platform intelligence · eventual consistency' : 'Your activity'}
-            </p>
+        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 30 }}>📊</span>
+            <div>
+              <h1 style={{ fontSize: 24, fontWeight: 900, color: TEC_COLORS.gold, margin: 0 }}>TEC Analytics</h1>
+              <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>
+                {isAdmin ? 'Platform intelligence · eventual consistency' : 'Your activity'}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {user && (
+              <span style={{ fontSize: 12, color: TEC_COLORS.subtext }}>
+                @{user.piUsername}{isAdmin ? ' · admin' : ''}
+              </span>
+            )}
+            <button
+              onClick={() => { void logout(); }}
+              style={{ fontSize: 12, color: TEC_COLORS.text, background: 'none', border: `1px solid ${TEC_COLORS.border}`, borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>
+              Logout
+            </button>
           </div>
         </header>
 
