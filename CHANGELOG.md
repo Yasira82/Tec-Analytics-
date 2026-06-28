@@ -10,6 +10,11 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
+- **Admin-gating the dashboard (C-122 §5 disclosure boundary, UX mirror):** the
+  platform aggregate sections (Overview, Payments) now render only for `role === 'admin'`
+  (from `usePiAuth`) — a non-admin sees an "admin-only" notice plus their own-scope
+  Recent events. The platform endpoints are not fetched by non-admins (the
+  `tec-analytics-service` remains the authority and 403s regardless).
 - **Phase 1 — Analytics dashboard MVP (C-105 — standalone surface, §5 / §11a):**
   - BFF routes `/api/bff/analytics/{overview,payments,users,events}` — server-only
     proxy to `tec-analytics-service` via the gateway (`forwardAnalyticsGet`), Bearer
