@@ -57,6 +57,12 @@ export default function HomePage() {
           }}>
           {isLoading ? '...' : 'Login with Pi'}
         </button>
+
+        <div style={{ marginTop: 28, fontSize: 12 }}>
+          <a href="/privacy" style={{ color: TEC_COLORS.subtext, textDecoration: 'none' }}>Privacy</a>
+          <span style={{ color: TEC_COLORS.subtext, margin: '0 8px' }}>·</span>
+          <a href="/terms" style={{ color: TEC_COLORS.subtext, textDecoration: 'none' }}>Terms</a>
+        </div>
       </div>
     </div>
   );

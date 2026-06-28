@@ -10,6 +10,13 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ## [Unreleased]
 
 ### Added
+- **App completeness pass:** dashboard header with `@username` + **Logout**;
+  `<ErrorBoundary>` wired in layout; `app/error.tsx` (route errors) +
+  `app/not-found.tsx` (branded 404) + `app/app/loading.tsx`; Privacy/Terms links
+  on login. **Time-window selector (7d / 30d)** on the platform sections —
+  client-side slicing with window totals recomputed from the slice. Expanded e2e
+  (legal links, privacy/terms, 404, protected-route redirect).
+- **Users & KYC dashboard section** (admin) surfacing new/active users + KYC verified.
 - **Admin-gating the dashboard (C-122 §5 disclosure boundary, UX mirror):** the
   platform aggregate sections (Overview, Payments) now render only for `role === 'admin'`
   (from `usePiAuth`) — a non-admin sees an "admin-only" notice plus their own-scope

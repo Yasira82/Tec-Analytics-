@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '@/styles/tec-design-tokens.css';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
   title:       'TEC Analytics',
@@ -41,7 +42,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body><ErrorBoundary>{children}</ErrorBoundary></body>
     </html>
   );
 }

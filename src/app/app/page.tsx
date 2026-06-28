@@ -7,15 +7,20 @@
 // C-122 §5 disclosure boundary (enforced server-side; mirrored here as UX):
 //   platform aggregates are SOVEREIGN → admin only. A non-admin sees only the
 //   own-scope "Recent events" section; the platform sections are not fetched.
+import { useState } from 'react';
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
 import { usePiAuth } from '@yasser172/tec-auth';
 import {
   useOverview,
   usePaymentAnalytics,
+  useUserAnalytics,
   useRecentEvents,
   type DailyMetric,
   type AsyncState,
 } from '@/lib-client/analytics/useAnalytics';
+
+const sumField = (metrics: DailyMetric[], field: keyof DailyMetric): number =>
+  metrics.reduce((s, m) => s + Number(m[field] ?? 0), 0);
 
 const card = {
   background:   TEC_COLORS.surface,
@@ -90,10 +95,37 @@ const toSeries = (metrics: DailyMetric[], field: keyof DailyMetric): { label: st
 // Platform aggregates = SOVEREIGN (C-122 §5). This component is mounted ONLY for
 // admins, so a non-admin never fires the platform endpoints (no 403 noise) —
 // the server remains the authority (it 403s regardless).
+function WindowToggle({ days, setDays }: { days: number; setDays: (d: number) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 22 }}>
+      {[7, 30].map((d) => {
+        const active = d === days;
+        return (
+          <button key={d} onClick={() => setDays(d)}
+            style={{
+              fontSize: 12, padding: '4px 12px', borderRadius: 8, cursor: 'pointer', fontWeight: active ? 700 : 400,
+              border: `1px solid ${active ? TEC_COLORS.gold : TEC_COLORS.border}`,
+              background: active ? TEC_COLORS.gold : 'none',
+              color: active ? '#0a0800' : TEC_COLORS.subtext,
+            }}>
+            {d}d
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PlatformSections() {
   const overview = useOverview();
   const payments = usePaymentAnalytics();
-  const o = overview.data;
+  const users    = useUserAnalytics();
+  const [days, setDays] = useState(30);
+  const o  = overview.data;
+  // metrics arrive newest-first; slice to the selected window. Window totals are
+  // recomputed from the slice so the headline numbers match the chart (honest).
+  const pm = (payments.data?.metrics ?? []).slice(0, days);
+  const um = (users.data?.metrics ?? []).slice(0, days);
   return (
     <>
       <Section title="Overview" state={overview}>
@@ -104,19 +136,32 @@ function PlatformSections() {
         </div>
       </Section>
 
-      <Section title="Payments (last 30 days)" state={payments}>
+      <WindowToggle days={days} setDays={setDays} />
+
+      <Section title={`Payments (last ${days} days)`} state={payments}>
         <div style={{ ...card }}>
           <div style={{ display: 'flex', gap: 28, marginBottom: 4 }}>
             <div>
-              <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Total volume</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.gold }}>{formatPi(payments.data?.totalVolume ?? 0)}</div>
+              <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Volume</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.gold }}>{formatPi(sumField(pm, 'total_volume'))}</div>
             </div>
             <div>
               <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Count</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.text }}>{(payments.data?.totalCount ?? 0).toLocaleString()}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.text }}>{sumField(pm, 'total_payments').toLocaleString()}</div>
             </div>
           </div>
-          <BarChart series={toSeries(payments.data?.metrics ?? [], 'total_volume')} />
+          <BarChart series={toSeries(pm, 'total_volume')} />
+        </div>
+      </Section>
+
+      <Section title={`Users & KYC (last ${days} days)`} state={users}>
+        <div style={{ ...card }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 8 }}>
+            <StatCard label="New users"    value={sumField(um, 'new_users').toLocaleString()} />
+            <StatCard label="Active (24h)" value={Number(um[0]?.active_users ?? 0).toLocaleString()} />
+            <StatCard label="KYC verified" value={sumField(um, 'kyc_verified').toLocaleString()} />
+          </div>
+          <BarChart series={toSeries(um, 'new_users')} />
         </div>
       </Section>
     </>
@@ -138,20 +183,34 @@ function AdminOnlyNotice() {
 }
 
 export default function AnalyticsDashboard() {
-  const { user, isLoading } = usePiAuth();
+  const { user, isLoading, logout } = usePiAuth();
   const isAdmin = user?.role === 'admin';
   const events  = useRecentEvents(15);
 
   return (
     <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: TEC_COLORS.text, padding: '32px 22px', fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif' }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <span style={{ fontSize: 30 }}>📊</span>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 900, color: TEC_COLORS.gold, margin: 0 }}>TEC Analytics</h1>
-            <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>
-              {isAdmin ? 'Platform intelligence · eventual consistency' : 'Your activity'}
-            </p>
+        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 30 }}>📊</span>
+            <div>
+              <h1 style={{ fontSize: 24, fontWeight: 900, color: TEC_COLORS.gold, margin: 0 }}>TEC Analytics</h1>
+              <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>
+                {isAdmin ? 'Platform intelligence · eventual consistency' : 'Your activity'}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {user && (
+              <span style={{ fontSize: 12, color: TEC_COLORS.subtext }}>
+                @{user.piUsername}{isAdmin ? ' · admin' : ''}
+              </span>
+            )}
+            <button
+              onClick={() => { void logout(); }}
+              style={{ fontSize: 12, color: TEC_COLORS.text, background: 'none', border: `1px solid ${TEC_COLORS.border}`, borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>
+              Logout
+            </button>
           </div>
         </header>
 
