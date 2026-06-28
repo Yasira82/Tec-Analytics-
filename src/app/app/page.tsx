@@ -3,7 +3,12 @@
 // TEC Analytics — platform intelligence dashboard (C-105 — standalone surface; see §5 / §11a).
 // Reads aggregated metrics from tec-analytics-service via /api/bff/analytics/*.
 // Platform-level + eventual consistency — never presented as financial truth.
+//
+// C-122 §5 disclosure boundary (enforced server-side; mirrored here as UX):
+//   platform aggregates are SOVEREIGN → admin only. A non-admin sees only the
+//   own-scope "Recent events" section; the platform sections are not fetched.
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
+import { usePiAuth } from '@yasser172/tec-auth';
 import {
   useOverview,
   usePaymentAnalytics,
@@ -82,12 +87,60 @@ const toSeries = (metrics: DailyMetric[], field: keyof DailyMetric): { label: st
     value: Number(m[field] ?? 0),
   }));
 
-export default function AnalyticsDashboard() {
+// Platform aggregates = SOVEREIGN (C-122 §5). This component is mounted ONLY for
+// admins, so a non-admin never fires the platform endpoints (no 403 noise) —
+// the server remains the authority (it 403s regardless).
+function PlatformSections() {
   const overview = useOverview();
   const payments = usePaymentAnalytics();
-  const events   = useRecentEvents(15);
-
   const o = overview.data;
+  return (
+    <>
+      <Section title="Overview" state={overview}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+          <StatCard label="Total events" value={(o?.totalEvents   ?? 0).toLocaleString()} />
+          <StatCard label="Payments"     value={(o?.totalPayments ?? 0).toLocaleString()} />
+          <StatCard label="Users"        value={(o?.totalUsers    ?? 0).toLocaleString()} />
+        </div>
+      </Section>
+
+      <Section title="Payments (last 30 days)" state={payments}>
+        <div style={{ ...card }}>
+          <div style={{ display: 'flex', gap: 28, marginBottom: 4 }}>
+            <div>
+              <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Total volume</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.gold }}>{formatPi(payments.data?.totalVolume ?? 0)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Count</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.text }}>{(payments.data?.totalCount ?? 0).toLocaleString()}</div>
+            </div>
+          </div>
+          <BarChart series={toSeries(payments.data?.metrics ?? [], 'total_volume')} />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function AdminOnlyNotice() {
+  return (
+    <section style={{ marginTop: 28 }}>
+      <div style={{ ...card, borderColor: TEC_COLORS.gold }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: TEC_COLORS.gold, marginBottom: 6 }}>Platform analytics are admin-only</div>
+        <p style={{ fontSize: 13, color: TEC_COLORS.subtext, margin: 0, lineHeight: 1.6 }}>
+          Ecosystem-wide aggregates are sovereign data (C-122 §5 disclosure boundary).
+          Your own recent activity is shown below.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+export default function AnalyticsDashboard() {
+  const { user, isLoading } = usePiAuth();
+  const isAdmin = user?.role === 'admin';
+  const events  = useRecentEvents(15);
 
   return (
     <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: TEC_COLORS.text, padding: '32px 22px', fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif' }}>
@@ -96,37 +149,18 @@ export default function AnalyticsDashboard() {
           <span style={{ fontSize: 30 }}>📊</span>
           <div>
             <h1 style={{ fontSize: 24, fontWeight: 900, color: TEC_COLORS.gold, margin: 0 }}>TEC Analytics</h1>
-            <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>Platform intelligence · eventual consistency</p>
+            <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>
+              {isAdmin ? 'Platform intelligence · eventual consistency' : 'Your activity'}
+            </p>
           </div>
         </header>
 
-        {/* Overview cards */}
-        <Section title="Overview" state={overview}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-            <StatCard label="Total events" value={(o?.totalEvents   ?? 0).toLocaleString()} />
-            <StatCard label="Payments"     value={(o?.totalPayments ?? 0).toLocaleString()} />
-            <StatCard label="Users"        value={(o?.totalUsers    ?? 0).toLocaleString()} />
-          </div>
-        </Section>
+        {/* Platform aggregates: admin only (C-122 §5) */}
+        {isLoading
+          ? <p style={{ marginTop: 28, fontSize: 13, color: TEC_COLORS.subtext }}>Loading…</p>
+          : isAdmin ? <PlatformSections /> : <AdminOnlyNotice />}
 
-        {/* Payment volume */}
-        <Section title="Payments (last 30 days)" state={payments}>
-          <div style={{ ...card }}>
-            <div style={{ display: 'flex', gap: 28, marginBottom: 4 }}>
-              <div>
-                <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Total volume</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.gold }}>{formatPi(payments.data?.totalVolume ?? 0)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: TEC_COLORS.subtext, textTransform: 'uppercase' }}>Count</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: TEC_COLORS.text }}>{(payments.data?.totalCount ?? 0).toLocaleString()}</div>
-              </div>
-            </div>
-            <BarChart series={toSeries(payments.data?.metrics ?? [], 'total_volume')} />
-          </div>
-        </Section>
-
-        {/* Recent events */}
+        {/* Recent events — own-scope (§5.1), available to every authenticated user */}
         <Section title="Recent events" state={events}>
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
             {(events.data ?? []).length === 0 && !events.loading ? (
