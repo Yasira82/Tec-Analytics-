@@ -12,10 +12,14 @@ import { usePiAuth } from '@yasser172/tec-auth';
 import {
   useOverview,
   usePaymentAnalytics,
+  useUserAnalytics,
   useRecentEvents,
   type DailyMetric,
   type AsyncState,
 } from '@/lib-client/analytics/useAnalytics';
+
+const sumField = (metrics: DailyMetric[], field: keyof DailyMetric): number =>
+  metrics.reduce((s, m) => s + Number(m[field] ?? 0), 0);
 
 const card = {
   background:   TEC_COLORS.surface,
@@ -93,7 +97,9 @@ const toSeries = (metrics: DailyMetric[], field: keyof DailyMetric): { label: st
 function PlatformSections() {
   const overview = useOverview();
   const payments = usePaymentAnalytics();
+  const users    = useUserAnalytics();
   const o = overview.data;
+  const um = users.data?.metrics ?? [];
   return (
     <>
       <Section title="Overview" state={overview}>
@@ -117,6 +123,17 @@ function PlatformSections() {
             </div>
           </div>
           <BarChart series={toSeries(payments.data?.metrics ?? [], 'total_volume')} />
+        </div>
+      </Section>
+
+      <Section title="Users & KYC (last 30 days)" state={users}>
+        <div style={{ ...card }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 8 }}>
+            <StatCard label="New users"     value={sumField(um, 'new_users').toLocaleString()} />
+            <StatCard label="Active (24h)"  value={Number(um[0]?.active_users ?? 0).toLocaleString()} />
+            <StatCard label="KYC verified"  value={sumField(um, 'kyc_verified').toLocaleString()} />
+          </div>
+          <BarChart series={toSeries(um, 'new_users')} />
         </div>
       </Section>
     </>
