@@ -1,13 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify }                 from 'jose';
 
-// Hub SSO landing: verifies the signed SSO token, then sets the platform
-// cookies and redirects into the app.
+// Hub SSO landing — C-123 compliant (Pi Browser Session & Cookie Spec):
+//   LAW 2: Set-Cookie on 3xx responses is dropped by Pi Browser → cookies are
+//          established on a plain 200 HTML landing page, never on a redirect.
+//   LAW 3: embedded contexts require Secure; SameSite=None; Partitioned.
+//   §3:    VERIFIED ENTRY — the landing script confirms the session is
+//          server-visible (/api/auth/me) BEFORE navigating into the app, with a
+//          document.cookie fallback and an explicit /?login=failed terminal
+//          state. A login loop is structurally impossible.
 const ALLOWED_AUDIENCES = [
   'https://tec-analytics-app.vercel.app',
   'https://analytics.tecosystem.app',
 ];
 const DEFAULT_REDIRECT = '/app';
+
+// One-time-use tokens (replay guard — parity with the Hub callback).
+const usedJtis = new Map<string, number>();
+const isJtiUsed = (jti: string): boolean => {
+  const now = Date.now();
+  for (const [key, exp] of usedJtis) {
+    if (now > exp) usedJtis.delete(key);
+  }
+  return usedJtis.has(jti);
+};
+const markJtiUsed = (jti: string): void => {
+  usedJtis.set(jti, Date.now() + 5 * 60 * 1000);
+};
 
 export async function GET(req: NextRequest) {
   const token       = req.nextUrl.searchParams.get('token');
@@ -34,24 +53,91 @@ export async function GET(req: NextRequest) {
     } catch { /* try next audience */ }
   }
 
-  if (!payload) return NextResponse.redirect(new URL(DEFAULT_REDIRECT, req.url));
+  if (!payload) return NextResponse.redirect(new URL('/', req.url));
+
+  const jti = payload.jti as string | undefined;
+  if (jti) {
+    if (isJtiUsed(jti)) return NextResponse.json({ error: 'replay_detected' }, { status: 401 });
+    markJtiUsed(jti);
+  }
 
   const accessToken = payload.accessToken as string;
   const user        = payload.user as Record<string, unknown>;
-  if (!accessToken || !user) return NextResponse.redirect(new URL(DEFAULT_REDIRECT, req.url));
+  if (!accessToken || !user) return NextResponse.redirect(new URL('/', req.url));
 
-  const res = NextResponse.redirect(new URL(redirect, req.url));
+  const csrf = crypto.randomUUID();
 
   const cookieDomain =
     process.env.COOKIE_DOMAIN ?? process.env.NEXT_PUBLIC_SSO_DOMAIN ?? undefined;
   const cookieOpts = {
-    httpOnly: false, secure: true, sameSite: 'none' as const,
-    path: '/', domain: cookieDomain, maxAge: 60 * 60 * 24,
+    httpOnly:    false,
+    secure:      true,
+    sameSite:    'none' as const,
+    partitioned: true,
+    path:        '/',
+    domain:      cookieDomain,
+    maxAge:      60 * 60 * 24,
   };
 
-  res.cookies.set('tec_access_token', accessToken,                        cookieOpts);
-  res.cookies.set('tec_user',         encodeURIComponent(JSON.stringify(user)), cookieOpts);
-  res.cookies.set('tec_csrf',         crypto.randomUUID(),               cookieOpts);
+  // App convention: tec_user is stored URL-encoded (getStoredUser decodes it).
+  const userValue = encodeURIComponent(JSON.stringify(user));
+
+  // Values for the document.cookie fallback (non-httpOnly cookies only; this
+  // page is one-time via the jti guard). The script encodes values itself.
+  const jsCookies = [
+    { name: 'tec_access_token', value: accessToken,          maxAge: 60 * 60 * 24 },
+    { name: 'tec_user',         value: JSON.stringify(user), maxAge: 60 * 60 * 24 },
+    { name: 'tec_csrf',         value: csrf,                 maxAge: 60 * 60 * 24 },
+  ];
+  const esc = (s: string) => s.replace(/</g, '\\u003c');
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>TEC Analytics — Signing in…</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<noscript><meta http-equiv="refresh" content="0;url=${redirect.replace(/"/g, '')}"></noscript>
+</head>
+<body style="margin:0;background:#050816;color:#FBBF24;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
+<div style="text-align:center"><div style="font-size:28px;font-weight:900">📊 TEC Analytics</div>
+<div style="font-size:13px;color:#9ca3af;margin-top:8px">Signing you in…</div></div>
+<script>
+(function () {
+  var redirect = ${esc(JSON.stringify(redirect))};
+  var cookies  = ${esc(JSON.stringify(jsCookies))};
+  function setDocCookies() {
+    for (var i = 0; i < cookies.length; i++) {
+      var c = cookies[i];
+      document.cookie = c.name + '=' + encodeURIComponent(c.value) +
+        '; path=/; max-age=' + c.maxAge + '; secure; samesite=none';
+    }
+  }
+  function sessionVisible(cb) {
+    fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
+      .then(function (r) { cb(r.ok); })
+      .catch(function () { cb(false); });
+  }
+  sessionVisible(function (ok) {
+    if (ok) { location.replace(redirect); return; }
+    setTimeout(function () {
+      sessionVisible(function (okDelayed) {
+        if (okDelayed) { location.replace(redirect); return; }
+        setDocCookies();
+        sessionVisible(function (ok2) {
+          location.replace(ok2 ? redirect : '/?login=failed');
+        });
+      });
+    }, 350);
+  });
+})();
+</script></body></html>`;
+
+  const res = new NextResponse(html, {
+    status:  200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+
+  res.cookies.set('tec_access_token', accessToken, cookieOpts);
+  res.cookies.set('tec_user',         userValue,   cookieOpts);
+  res.cookies.set('tec_csrf',         csrf,        cookieOpts);
 
   return res;
 }

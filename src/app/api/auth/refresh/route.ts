@@ -26,8 +26,10 @@ export async function POST(req: NextRequest) {
 
     if (newToken) {
       const cookieDomain = process.env.COOKIE_DOMAIN ?? process.env.NEXT_PUBLIC_SSO_DOMAIN ?? undefined;
+      // C-123 LAW 3: none + secure + Partitioned (embedded Pi Browser contexts
+      // block anything less under the third-party cookie phaseout).
       response.cookies.set('tec_access_token', newToken, {
-        httpOnly: false, secure: true, sameSite: 'none',
+        httpOnly: false, secure: true, sameSite: 'none', partitioned: true,
         path: '/', domain: cookieDomain, maxAge: 60 * 60 * 24,
       });
     }
