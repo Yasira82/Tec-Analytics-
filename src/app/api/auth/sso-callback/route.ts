@@ -103,6 +103,14 @@ export async function GET(req: NextRequest) {
 (function () {
   var redirect = ${esc(JSON.stringify(redirect))};
   var cookies  = ${esc(JSON.stringify(jsCookies))};
+  // ADR-007/C-12 §3: this landing replaces the old 3xx chain (C-123 LAW 2),
+  // so location.replace() below erases the hub referrer. Persist the hub-entry
+  // signal per-tab — isHubNavigation() + the layout Pi-init skip consult it.
+  try {
+    if (document.referrer.toLowerCase().indexOf('hub.tecosystem.app') !== -1) {
+      sessionStorage.setItem('__tec_hub_entry', '1');
+    }
+  } catch (e) {}
   function setDocCookies() {
     for (var i = 0; i < cookies.length; i++) {
       var c = cookies[i];

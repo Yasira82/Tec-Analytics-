@@ -17,6 +17,20 @@ const PRICE     = 10;                              // π / month (Pro entry tier
 const ITEM_ID   = 'merchant_pro_monthly';
 const MEMO      = 'TEC Analytics — Merchant Pro (1 month)';
 
+// Always render a STRING. A gateway/payment error body can be an object
+// ({ code, message }); rendering it as a React child throws (minified #31 →
+// "Something went wrong"). Coerce everything to text before it hits state.
+const asText = (v: unknown): string => {
+  if (typeof v === 'string') return v;
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    if (typeof o.message === 'string') return o.message;
+    if (typeof o.error === 'string')   return o.error;
+    try { return JSON.stringify(v); } catch { return 'Payment failed.'; }
+  }
+  return v == null ? '' : String(v);
+};
+
 type Status = 'idle' | 'creating' | 'paying' | 'success' | 'cancelled' | 'error';
 
 export function ProUpgrade() {
@@ -30,6 +44,18 @@ export function ProUpgrade() {
     const h = () => setPiReady(true);
     window.addEventListener('tec-pi-ready', h, { once: true });
     return () => window.removeEventListener('tec-pi-ready', h);
+  }, []);
+
+  // Mode-1 round-trip: the Hub returns to /app?payment_status=success|error|…
+  // after handling the payment in its modal. Reflect it, then clean the URL.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const p = new URLSearchParams(window.location.search);
+    const st = p.get('payment_status');
+    if (!st) return;
+    if (st === 'success') setStatus('success');
+    else if (st === 'error') { setStatus('error'); setMessage('Payment did not complete. Please try again.'); }
+    window.history.replaceState({}, '', '/app');
   }, []);
 
   const handleUpgrade = async () => {
@@ -60,11 +86,11 @@ export function ProUpgrade() {
         setStatus('idle');
       } else {
         setStatus('error');
-        setMessage(result.message ?? 'Payment failed. Please try again.');
+        setMessage(asText(result.message) || 'Payment failed. Please try again.');
       }
     } catch (err) {
       setStatus('error');
-      setMessage(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+      setMessage(asText(err) || 'Payment failed. Please try again.');
     }
   };
 
