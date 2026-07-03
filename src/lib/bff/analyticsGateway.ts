@@ -8,8 +8,13 @@ import { NextRequest, NextResponse } from 'next/server';
 // Analytics is platform-level + eventual-consistency (C-47 §6) — never financial truth.
 const GW = process.env.API_GATEWAY_URL ?? '';
 
-/** Forward an authenticated GET to a gateway analytics path, passing the response through. */
-export async function forwardAnalyticsGet(
+/**
+ * Forward an authenticated GET to ANY gateway path, passing the response through.
+ * Bearer (session cookie) + x-internal-key. Fail closed: no session token → 401.
+ * Used for both analytics (`/api/analytics/*`) and cross-service reads the Analytics
+ * app presents but does not own — e.g. seller sales truth from commerce (C-105 §6).
+ */
+export async function forwardGatewayGet(
   req: NextRequest,
   gatewayPath: string,
 ): Promise<NextResponse> {
@@ -28,10 +33,13 @@ export async function forwardAnalyticsGet(
   try {
     const res  = await fetch(`${GW}${gatewayPath}`, { headers, cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) console.error('[bff/analytics] gateway error:', res.status, gatewayPath);
+    if (!res.ok) console.error('[bff/gateway] error:', res.status, gatewayPath);
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
-    console.error('[bff/analytics] network error:', (err as Error).message, gatewayPath);
+    console.error('[bff/gateway] network error:', (err as Error).message, gatewayPath);
     return NextResponse.json({ error: 'Service unavailable' }, { status: 503 });
   }
 }
+
+/** Back-compat alias — analytics-service reads go through the same authed forwarder. */
+export const forwardAnalyticsGet = forwardGatewayGet;

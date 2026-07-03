@@ -19,9 +19,10 @@ API Gateway via `/api/bff/analytics/*`.
 `analytics.tecosystem.app`; login (C-123), events dashboard, and a **real Merchant Pro
 payment (Mode 1 + Mode 2)** verified in production 2026-07-03. Pi App ID **registered**
 (Portal "Process a Transaction" step complete). Charter C-105 is `[Current State]`.
-Remaining: §6 merchant isolation **slice 2** (seller-scoped "my sales") — gated on
-upstream `payment.*`/`order.*` events carrying a merchant/seller id. **Slice 1
-(own-scope by session identity) is shipped** (`/analytics/me/overview` + "Your activity").
+§6 merchant isolation **slices 1 + 2 shipped**: "Your activity" (own aggregates,
+`/analytics/me/overview`) + "Your sales" (seller revenue, presented from
+`tec-commerce-service`'s `/commerce/orders/seller/sales-summary` — Analytics never
+re-derives transaction truth). Remaining: §11 embeds + rollout-registry.
 
 ---
 
@@ -150,11 +151,13 @@ src/app/privacy · terms                    Pi Portal legal pages
      ✅ §6 merchant isolation SLICE 1 (own-scope): GET /analytics/me/overview +
         "Your activity" panel — non-admins see ONLY their own aggregates (identity
         from session token, never a param; 401 w/o user scope)
-     □  C-01 full Pi App ID value · rollout-registry to-build → live
-□  §6 SLICE 2 (seller-scoped "my sales") — tec-analytics-service is PLATFORM-level:
-     AnalyticsEvent carries user_id but no merchantId/seller id. Attributing a SALE to
-     the SELLER needs upstream payment.*/order.* events to carry it BEFORE the service
-     can aggregate it — a separate cross-service change.
+     ✅ §6 merchant isolation SLICE 2 (seller "my sales"): "Your sales" panel —
+        revenue / items sold / orders / top products / recent sales. Sales are OWNED
+        + aggregated by tec-commerce-service (GET /commerce/orders/seller/sales-summary,
+        seller = session identity); Analytics only PRESENTS them via BFF
+        /api/bff/analytics/me/sales — never re-derives transaction truth (C-105 boundary).
+     □  rollout-registry to-build → live
+□  §11 P1-1/P1-2 embeds (Hub /hub/analytics · Commerce embed) — to-build
 □  Deferred/ops — Supabase RLS (P2-1) · ALERT integration (P2-2)
 ```
 
