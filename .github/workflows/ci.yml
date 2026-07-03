@@ -45,6 +45,24 @@ jobs:
               violations=1
             fi
           done
+          # ── NEW-A: internal gateway URL must never reach the client bundle ──
+          # No NEXT_PUBLIC_* gateway var and no Railway host literal anywhere in
+          # src — the gateway is addressed server-side only (API_GATEWAY_URL).
+          if grep -rn 'NEXT_PUBLIC_API_GATEWAY_URL' src | grep -vE '__tests__|\.test\.'; then
+            echo "::error::NEW-A: NEXT_PUBLIC_API_GATEWAY_URL leaks the internal gateway URL into the client bundle. Use server-only API_GATEWAY_URL in BFF routes."
+            violations=1
+          fi
+          if grep -rniE '[a-z0-9-]+\.up\.railway\.app' src | grep -vE '__tests__|\.test\.'; then
+            echo "::error::NEW-A: hardcoded Railway host in src — internal URLs must come from server-only env, never literals in code."
+            violations=1
+          fi
+          # ── C-105 §6: merchant isolation — identity from session, NOT input ──
+          # Analytics BFF routes must derive merchant/user identity from the
+          # tec_user session cookie, never from a query param or request body.
+          if grep -rnE "searchParams\.get\(['\"](merchant|user)_?[iI]d|body\.(merchantId|userId|merchant_id|user_id)" src/app/api/bff/analytics 2>/dev/null; then
+            echo "::error::C-105 §6: analytics BFF must derive merchantId from the tec_user session cookie — never from a query param or request body (cross-merchant leak / P6)."
+            violations=1
+          fi
           [ "$violations" -eq 0 ] && echo "Drift Detection OK — code matches KB claims" || exit 1
 
   lint:
