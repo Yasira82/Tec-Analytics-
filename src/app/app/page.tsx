@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
 import { usePiAuth, getAccessToken } from '@yasser172/tec-auth';
+import { ProUpgrade } from './components/ProUpgrade';
 
 // Read the `role` claim from the access-token JWT (payload only — display gate,
 // never a security decision; the analytics service enforces C-122 §5 server-side).
@@ -250,6 +251,9 @@ export default function AnalyticsDashboard() {
             </button>
           </div>
         </header>
+
+        {/* Merchant Pro — monetization surface (C-105 §7) + real U2A payment */}
+        <ProUpgrade />
 
         {/* Platform aggregates: admin only (C-122 §5) */}
         {isLoading
