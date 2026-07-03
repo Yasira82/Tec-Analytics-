@@ -15,8 +15,10 @@ This repo is the **Next.js frontend**. The intelligence backend is
 `tec-analytics-service` (Port 4007, in `tec-core-backend`), consumed through the
 API Gateway via `/api/bff/analytics/*`.
 
-**Current Phase: Phase 0 — built from `tec-template-base` v2.** Charter C-105 is
-`[Planned State]`; building this app moves it toward `[Current State]`.
+**Current Phase: Phase 2 — deployed + Runtime Verified.** Live at
+`analytics.tecosystem.app`; login (C-123) + events dashboard verified in production
+2026-07-03. Charter C-105 is now `[Current State]`. Remaining: Pi App ID registration
++ §6 merchant isolation (blocked on a `tec-analytics-service` schema change).
 
 ---
 
@@ -135,8 +137,11 @@ src/app/privacy · terms                    Pi Portal legal pages
      · /api/bff/analytics/{overview,payments,users,events} → tec-analytics-service (via gateway)
      · /app dashboard: overview cards + payment volume (30d) + recent events
      · inline bar chart (Pi-Browser safe; tec-ui charts pending C-105 §5)
-□  Phase 2 — Parity + governance: Drift Detection CI gate · update C-105 → Current,
-     rollout-registry to-build → live, C-01 Pi App ID once registered
+◐  Phase 2 — Parity + governance (in progress):
+     ✅ Drift Detection CI gate — parity + Analytics-specific NEW-A + C-105 §6 checks
+     ✅ C-105 charter → [Current State] (deployed + Runtime Verified 2026-07-03)
+     ✅ Full-bleed dark layout (parity with Commerce/Assets — no white frame)
+     □  C-01 Pi App ID once registered · rollout-registry to-build → live
 □  Backend gap — tec-analytics-service is PLATFORM-level (no merchantId scoping). Merchant
      data-isolation (C-105 §6) needs the SERVICE to filter by merchant before the BFF can.
 □  Deferred/ops — Pi Portal registration · Supabase RLS (P2-1) · ALERT integration (P2-2)
