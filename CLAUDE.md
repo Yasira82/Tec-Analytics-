@@ -31,7 +31,7 @@ upstream `payment.*`/`order.*` events carrying a merchant/seller id. **Slice 1
 |-------|-------|
 | **App** | TEC Analytics |
 | **Domain** | `https://analytics.tecosystem.app` |
-| **Pi App ID** | ✅ Registered — prefix `analytics-822d98…` (full value = Vercel `NEXT_PUBLIC_PI_APP_ID`) |
+| **Pi App ID** | `analytics-822d9810de66bc84` ✅ Registered (Mainnet) · also Vercel `NEXT_PUBLIC_PI_APP_ID` |
 | **APP_SOURCE slug** | `analytics` (payment-service resolves `PI_API_KEY_ANALYTICS`) |
 | **PI_SANDBOX** | `false` (Mainnet) |
 
