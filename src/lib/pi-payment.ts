@@ -47,16 +47,24 @@ export const isHubNavigation = (): boolean => {
   return document.referrer.toLowerCase().includes('hub.tecosystem.app');
 };
 
-/** Mode 1 — hand the payment off to the Hub modal. `/hub?pay=1` is LOCKED (C-76/ADR-007). */
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://analytics.tecosystem.app';
+
+/**
+ * Mode 1 — hand the payment off to the Hub modal. `/hub?pay=1` is LOCKED
+ * (C-76/ADR-007). Param names MUST match what the Hub reads: `product_id`
+ * and `return_url` (not `item`) — otherwise the Hub redirects back to its
+ * default (Commerce) after payment instead of to Analytics.
+ */
 export const redirectToHubPayment = (params: {
   amount: number; itemId: string; memo?: string;
 }): void => {
   if (typeof window === 'undefined') return;
   const q = new URLSearchParams({
-    pay:    '1',
-    source: APP_SOURCE,
-    amount: String(params.amount),
-    item:   params.itemId,
+    pay:        '1',
+    source:     APP_SOURCE,
+    amount:     String(params.amount),
+    product_id: params.itemId,
+    return_url: `${APP_URL}/app`,
     ...(params.memo ? { memo: params.memo } : {}),
   });
   window.location.href = `${HUB_URL}/hub?${q.toString()}`;
