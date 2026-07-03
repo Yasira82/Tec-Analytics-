@@ -47,7 +47,9 @@ export default function RootLayout({
                 } catch(e) {}
                 if (typeof window.Pi === 'undefined') { setTimeout(initPi, 150); return; }
                 try {
-                  window.Pi.init({ version: '2.0', sandbox: ${process.env.NEXT_PUBLIC_PI_SANDBOX === 'true'} });
+                  // appId is redundant when the domain is Portal-registered, but
+                  // the other apps pass it — kept for parity/robustness.
+                  window.Pi.init({ version: '2.0', sandbox: ${process.env.NEXT_PUBLIC_PI_SANDBOX === 'true'}, appId: '${process.env.NEXT_PUBLIC_PI_APP_ID ?? ''}' });
                   setReady();
                 } catch(e) {
                   var msg = String(e).toLowerCase();
