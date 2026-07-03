@@ -15,7 +15,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+        {/* Global reset — full-bleed dark background (parity with Commerce/Assets).
+            Without it the browser's default body margin shows a white frame
+            around the dark app. */}
+        <style>{`
+          *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+          html, body { height: 100%; width: 100%; background: #050816; }
+          body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+        `}</style>
         <script
           src="https://sdk.minepi.com/pi-sdk.js"
           async
