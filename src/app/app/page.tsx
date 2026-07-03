@@ -34,6 +34,7 @@ import {
   usePaymentAnalytics,
   useUserAnalytics,
   useRecentEvents,
+  useOwnOverview,
   type DailyMetric,
   type AsyncState,
 } from '@/lib-client/analytics/useAnalytics';
@@ -187,16 +188,42 @@ function PlatformSections() {
   );
 }
 
-function AdminOnlyNotice() {
+// C-105 §6 own-scope: a non-admin sees ONLY their own aggregates (fetched from
+// /me/overview, scoped server-side by the session identity) — never platform data.
+function OwnActivity() {
+  const own = useOwnOverview();
+  const byType = (own.data?.byType ?? []).map(t => ({ label: t.type.replace(/\..*/, ''), value: t.count }));
+
   return (
     <section style={{ marginTop: 28 }}>
-      <div style={{ ...card, borderColor: TEC_COLORS.gold }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: TEC_COLORS.gold, marginBottom: 6 }}>Platform analytics are admin-only</div>
-        <p style={{ fontSize: 13, color: TEC_COLORS.subtext, margin: 0, lineHeight: 1.6 }}>
-          Ecosystem-wide aggregates are sovereign data (C-122 §5 disclosure boundary).
-          Your own recent activity is shown below.
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: TEC_COLORS.text, margin: '0 0 12px' }}>Your activity</h2>
+
+      <div style={{ ...card, borderColor: `${TEC_COLORS.gold}55`, marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: TEC_COLORS.gold, marginBottom: 4 }}>Private to you</div>
+        <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: 0, lineHeight: 1.6 }}>
+          These are your own figures only. Ecosystem-wide aggregates are admin-only
+          (C-122 §5). Upgrade to Merchant Pro for richer business intelligence as it ships.
         </p>
       </div>
+
+      {own.error ? (
+        <div style={{ ...card }}>
+          <span style={{ fontSize: 13, color: TEC_COLORS.error }}>Couldn’t load your activity. Please retry.</span>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <StatCard label="Your events"   value={own.loading ? '…' : String(own.data?.totalEvents   ?? 0)} />
+            <StatCard label="Your payments" value={own.loading ? '…' : String(own.data?.totalPayments ?? 0)} />
+          </div>
+          {byType.length > 0 && (
+            <div style={{ ...card, marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: TEC_COLORS.subtext, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 }}>By type</div>
+              <BarChart series={byType} />
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }
@@ -258,7 +285,7 @@ export default function AnalyticsDashboard() {
         {/* Platform aggregates: admin only (C-122 §5) */}
         {isLoading
           ? <p style={{ marginTop: 28, fontSize: 13, color: TEC_COLORS.subtext }}>Loading…</p>
-          : isAdmin ? <PlatformSections /> : <AdminOnlyNotice />}
+          : isAdmin ? <PlatformSections /> : <OwnActivity />}
 
         {/* Recent events — own-scope (§5.1), available to every authenticated user */}
         <Section title="Recent events" state={events}>

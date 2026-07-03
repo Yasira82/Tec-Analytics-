@@ -31,6 +31,14 @@ export interface UserAnalytics {
   metrics: DailyMetric[];
 }
 
+// C-105 §6 own-scope: the caller's OWN aggregates only (never platform data).
+export interface OwnOverview {
+  scope:         'own';
+  totalEvents:   number;
+  totalPayments: number;
+  byType:        { type: string; count: number }[];
+}
+
 export interface AnalyticsEvent {
   id:         string;
   type:       string;
@@ -88,5 +96,6 @@ export function useAnalyticsResource<T>(path: string): AsyncState<T> {
 export const useOverview        = () => useAnalyticsResource<Overview>('/api/bff/analytics/overview');
 export const usePaymentAnalytics = () => useAnalyticsResource<PaymentAnalytics>('/api/bff/analytics/payments');
 export const useUserAnalytics   = () => useAnalyticsResource<UserAnalytics>('/api/bff/analytics/users');
+export const useOwnOverview     = () => useAnalyticsResource<OwnOverview>('/api/bff/analytics/me/overview');
 export const useRecentEvents    = (limit = 20) =>
   useAnalyticsResource<AnalyticsEvent[]>(`/api/bff/analytics/events?limit=${limit}`);
