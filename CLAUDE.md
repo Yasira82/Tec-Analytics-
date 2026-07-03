@@ -16,9 +16,12 @@ This repo is the **Next.js frontend**. The intelligence backend is
 API Gateway via `/api/bff/analytics/*`.
 
 **Current Phase: Phase 2 — deployed + Runtime Verified.** Live at
-`analytics.tecosystem.app`; login (C-123) + events dashboard verified in production
-2026-07-03. Charter C-105 is now `[Current State]`. Remaining: Pi App ID registration
-+ §6 merchant isolation (blocked on a `tec-analytics-service` schema change).
+`analytics.tecosystem.app`; login (C-123), events dashboard, and a **real Merchant Pro
+payment (Mode 1 + Mode 2)** verified in production 2026-07-03. Pi App ID **registered**
+(Portal "Process a Transaction" step complete). Charter C-105 is `[Current State]`.
+Remaining: §6 merchant isolation **slice 2** (seller-scoped "my sales") — gated on
+upstream `payment.*`/`order.*` events carrying a merchant/seller id. **Slice 1
+(own-scope by session identity) is shipped** (`/analytics/me/overview` + "Your activity").
 
 ---
 
@@ -28,8 +31,8 @@ API Gateway via `/api/bff/analytics/*`.
 |-------|-------|
 | **App** | TEC Analytics |
 | **Domain** | `https://analytics.tecosystem.app` |
-| **Pi App ID** | `TBD` — register in Pi Developer Portal |
-| **APP_SOURCE slug** | `analytics` |
+| **Pi App ID** | ✅ Registered — prefix `analytics-822d98…` (full value = Vercel `NEXT_PUBLIC_PI_APP_ID`) |
+| **APP_SOURCE slug** | `analytics` (payment-service resolves `PI_API_KEY_ANALYTICS`) |
 | **PI_SANDBOX** | `false` (Mainnet) |
 
 ---
@@ -141,10 +144,18 @@ src/app/privacy · terms                    Pi Portal legal pages
      ✅ Drift Detection CI gate — parity + Analytics-specific NEW-A + C-105 §6 checks
      ✅ C-105 charter → [Current State] (deployed + Runtime Verified 2026-07-03)
      ✅ Full-bleed dark layout (parity with Commerce/Assets — no white frame)
-     □  C-01 Pi App ID once registered · rollout-registry to-build → live
-□  Backend gap — tec-analytics-service is PLATFORM-level (no merchantId scoping). Merchant
-     data-isolation (C-105 §6) needs the SERVICE to filter by merchant before the BFF can.
-□  Deferred/ops — Pi Portal registration · Supabase RLS (P2-1) · ALERT integration (P2-2)
+     ✅ Pi App ID registered + Portal "Process a Transaction" step done (real payment)
+     ✅ §7 Merchant Pro (10π/month) LIVE — Mode 1 (Hub) + Mode 2 (standalone) verified
+        (needed payment-service PI_API_KEY_ANALYTICS — see C-12 §11 / approve→502)
+     ✅ §6 merchant isolation SLICE 1 (own-scope): GET /analytics/me/overview +
+        "Your activity" panel — non-admins see ONLY their own aggregates (identity
+        from session token, never a param; 401 w/o user scope)
+     □  C-01 full Pi App ID value · rollout-registry to-build → live
+□  §6 SLICE 2 (seller-scoped "my sales") — tec-analytics-service is PLATFORM-level:
+     AnalyticsEvent carries user_id but no merchantId/seller id. Attributing a SALE to
+     the SELLER needs upstream payment.*/order.* events to carry it BEFORE the service
+     can aggregate it — a separate cross-service change.
+□  Deferred/ops — Supabase RLS (P2-1) · ALERT integration (P2-2)
 ```
 
 ---
