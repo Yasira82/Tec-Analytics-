@@ -9,7 +9,25 @@
 //   own-scope "Recent events" section; the platform sections are not fetched.
 import { useState } from 'react';
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
-import { usePiAuth } from '@yasser172/tec-auth';
+import { usePiAuth, getAccessToken } from '@yasser172/tec-auth';
+
+// Read the `role` claim from the access-token JWT (payload only — display gate,
+// never a security decision; the analytics service enforces C-122 §5 server-side).
+// The token re-reads role from the DB on refresh (auth-service), so this reflects
+// a role change within one refresh cycle WITHOUT a full re-login — unlike the
+// tec_user cookie, which is only written at login.
+const tokenRole = (): string | null => {
+  try {
+    const t = getAccessToken();
+    if (!t) return null;
+    const seg = t.split('.')[1];
+    if (!seg) return null;
+    const json = atob(seg.replace(/-/g, '+').replace(/_/g, '/'));
+    return (JSON.parse(json)?.role as string) ?? null;
+  } catch {
+    return null;
+  }
+};
 import {
   useOverview,
   usePaymentAnalytics,
@@ -184,7 +202,9 @@ function AdminOnlyNotice() {
 
 export default function AnalyticsDashboard() {
   const { user, isLoading, logout } = usePiAuth();
-  const isAdmin = user?.role === 'admin';
+  // Prefer the fresh access-token role (refreshes ~hourly) over the login-time
+  // tec_user cookie, so an admin grant shows up without a full re-login.
+  const isAdmin = user?.role === 'admin' || tokenRole() === 'admin';
   const events  = useRecentEvents(15);
 
   // C-123 LAW 1: in Pi Browser, cookie deletion via an XHR Set-Cookie response
