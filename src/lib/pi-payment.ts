@@ -33,10 +33,19 @@ const APP_SOURCE = 'analytics';
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://hub.tecosystem.app';
 
-/** ADR-007: true when the user arrived FROM the Hub (Pi session is foreign). */
-export const isHubNavigation = (): boolean =>
-  typeof document !== 'undefined' &&
-  document.referrer.toLowerCase().includes('hub.tecosystem.app');
+/**
+ * ADR-007 / C-12 §3: true when the user arrived FROM the Hub (Pi session is
+ * foreign). Two signals — the sessionStorage flag persisted by the SSO landing
+ * (the C-123 LAW-2 landing erases the hub referrer via location.replace), with
+ * document.referrer as fallback for direct hub→app hops.
+ */
+export const isHubNavigation = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.sessionStorage.getItem('__tec_hub_entry') === '1') return true;
+  } catch { /* storage unavailable — fall back to referrer */ }
+  return document.referrer.toLowerCase().includes('hub.tecosystem.app');
+};
 
 /** Mode 1 — hand the payment off to the Hub modal. `/hub?pay=1` is LOCKED (C-76/ADR-007). */
 export const redirectToHubPayment = (params: {
