@@ -35,6 +35,7 @@ import {
   useUserAnalytics,
   useRecentEvents,
   useOwnOverview,
+  useOwnSales,
   type DailyMetric,
   type AsyncState,
 } from '@/lib-client/analytics/useAnalytics';
@@ -228,6 +229,72 @@ function OwnActivity() {
   );
 }
 
+// C-105 §6 slice 2: the caller's own SALES as a seller. Sales truth is OWNED by
+// tec-commerce-service (Order owner) and aggregated there — this only presents it.
+// The seller is the session identity server-side (never a param); a merchant sees
+// ONLY their own sales.
+function MySales() {
+  const sales = useOwnSales();
+  const d = sales.data;
+  const topSeries = (d?.topProducts ?? []).map((p) => ({ label: p.title.slice(0, 8), value: Number(p.revenue) }));
+  const hasSales = (d?.orderCount ?? 0) > 0;
+
+  return (
+    <section style={{ marginTop: 28 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: TEC_COLORS.text, margin: '0 0 12px' }}>Your sales</h2>
+
+      {sales.error ? (
+        <div style={{ ...card }}>
+          <span style={{ fontSize: 13, color: TEC_COLORS.error }}>Couldn’t load your sales. </span>
+          <button onClick={sales.reload}
+            style={{ fontSize: 12, color: TEC_COLORS.gold, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+            retry
+          </button>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <StatCard label="Revenue"    value={sales.loading ? '…' : formatPi(Number(d?.totalRevenue ?? 0))} />
+            <StatCard label="Items sold" value={sales.loading ? '…' : String(d?.totalItemsSold ?? 0)} />
+            <StatCard label="Orders"     value={sales.loading ? '…' : String(d?.orderCount ?? 0)} />
+          </div>
+
+          {!sales.loading && !hasSales && (
+            <div style={{ ...card, marginTop: 12 }}>
+              <span style={{ fontSize: 13, color: TEC_COLORS.subtext }}>
+                No sales yet. When buyers purchase your products they’ll appear here.
+              </span>
+            </div>
+          )}
+
+          {topSeries.length > 0 && (
+            <div style={{ ...card, marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: TEC_COLORS.subtext, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 }}>Top products</div>
+              <BarChart series={topSeries} />
+            </div>
+          )}
+
+          {(d?.recentSales?.length ?? 0) > 0 && (
+            <div style={{ ...card, marginTop: 12 }}>
+              <div style={{ fontSize: 12, color: TEC_COLORS.subtext, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>Recent sales</div>
+              {(d?.recentSales ?? []).slice(0, 5).map((s, i) => (
+                <div key={`${s.orderId}-${s.productId}-${i}`}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: i === 0 ? 'none' : `1px solid ${TEC_COLORS.border}` }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: TEC_COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                    <div style={{ fontSize: 11, color: TEC_COLORS.subtext }}>×{s.quantity} · {formatDate(s.soldAt)}</div>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: TEC_COLORS.gold, whiteSpace: 'nowrap', marginLeft: 12 }}>{formatPi(Number(s.amount))}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function AnalyticsDashboard() {
   const { user, isLoading, logout } = usePiAuth();
   // Prefer the fresh access-token role (refreshes ~hourly) over the login-time
@@ -285,7 +352,7 @@ export default function AnalyticsDashboard() {
         {/* Platform aggregates: admin only (C-122 §5) */}
         {isLoading
           ? <p style={{ marginTop: 28, fontSize: 13, color: TEC_COLORS.subtext }}>Loading…</p>
-          : isAdmin ? <PlatformSections /> : <OwnActivity />}
+          : isAdmin ? <PlatformSections /> : <><OwnActivity /><MySales /></>}
 
         {/* Recent events — own-scope (§5.1), available to every authenticated user */}
         <Section title="Recent events" state={events}>

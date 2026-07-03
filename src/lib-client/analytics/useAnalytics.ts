@@ -39,6 +39,27 @@ export interface OwnOverview {
   byType:        { type: string; count: number }[];
 }
 
+// C-105 §6 slice 2 — the caller's OWN sales as a SELLER. Aggregated by
+// tec-commerce-service (Order owner); presented here, never re-derived.
+// Money fields are strings (DECIMAL(20,8) contract), never floats.
+export interface OwnSales {
+  scope:          'seller';
+  sellerId:       string;
+  currency:       string;
+  totalRevenue:   string;
+  totalItemsSold: number;
+  orderCount:     number;
+  topProducts:    { productId: string; title: string; revenue: string; itemsSold: number }[];
+  recentSales:    {
+    orderId:   string;
+    productId: string;
+    title:     string;
+    quantity:  number;
+    amount:    string;
+    soldAt:    string;
+  }[];
+}
+
 export interface AnalyticsEvent {
   id:         string;
   type:       string;
@@ -97,5 +118,6 @@ export const useOverview        = () => useAnalyticsResource<Overview>('/api/bff
 export const usePaymentAnalytics = () => useAnalyticsResource<PaymentAnalytics>('/api/bff/analytics/payments');
 export const useUserAnalytics   = () => useAnalyticsResource<UserAnalytics>('/api/bff/analytics/users');
 export const useOwnOverview     = () => useAnalyticsResource<OwnOverview>('/api/bff/analytics/me/overview');
+export const useOwnSales        = () => useAnalyticsResource<OwnSales>('/api/bff/analytics/me/sales');
 export const useRecentEvents    = (limit = 20) =>
   useAnalyticsResource<AnalyticsEvent[]>(`/api/bff/analytics/events?limit=${limit}`);
