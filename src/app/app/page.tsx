@@ -187,6 +187,23 @@ export default function AnalyticsDashboard() {
   const isAdmin = user?.role === 'admin';
   const events  = useRecentEvents(15);
 
+  // C-123 LAW 1: in Pi Browser, cookie deletion via an XHR Set-Cookie response
+  // is unreliable — the package logout() alone left the session cookies in place
+  // and never navigated, so the button looked dead and re-login never happened.
+  // Fix: fire the server clear (best effort) AND clear the readable cookies
+  // client-side, then hard-navigate to the login page so a FRESH session (with
+  // the current DB role) is minted on next login.
+  const handleLogout = async () => {
+    try { await logout(); } catch { /* best effort */ }
+    try {
+      ['tec_access_token', 'tec_user', 'tec_csrf'].forEach((n) => {
+        document.cookie = `${n}=; path=/; max-age=0; secure; samesite=none`;
+        document.cookie = `${n}=; path=/; max-age=0`;
+      });
+    } catch { /* ignore */ }
+    window.location.href = '/';
+  };
+
   return (
     <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: TEC_COLORS.text, padding: '32px 22px', fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif' }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
@@ -207,7 +224,7 @@ export default function AnalyticsDashboard() {
               </span>
             )}
             <button
-              onClick={() => { void logout(); }}
+              onClick={() => { void handleLogout(); }}
               style={{ fontSize: 12, color: TEC_COLORS.text, background: 'none', border: `1px solid ${TEC_COLORS.border}`, borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>
               Logout
             </button>
