@@ -206,3 +206,34 @@ describe('GET /api/bff/analytics/me/intelligence', () => {
     fetchSpy.mockRestore();
   });
 });
+
+// Pi Economy Pulse (C-122 §5.2) — PUBLIC, de-identified aggregate board. No session
+// required (the whole Pi community sees it); the internal key is added server-side.
+describe('GET /api/bff/analytics/pulse (public, de-identified)', () => {
+  it('forwards WITHOUT any user token, with the internal key, and passes data through', async () => {
+    process.env.INTERNAL_SECRET = 'secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ data: { scope: 'aggregate', totalTransactions: 42, activeMerchants: 8 } }),
+    } as Response);
+
+    const { GET } = await import('@/app/api/bff/analytics/pulse/route');
+    const res  = await GET();
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.data.totalTransactions).toBe(42);
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    expect(url).toBe(`${GW}/api/analytics/pulse`);
+    expect(init.headers['x-internal-key']).toBe('secret');
+    expect(init.headers.Authorization).toBeUndefined();   // no user token — it's public
+    fetchSpy.mockRestore();
+  });
+
+  it('503 when the gateway is not configured', async () => {
+    process.env.API_GATEWAY_URL = '';
+    const { GET } = await import('@/app/api/bff/analytics/pulse/route');
+    const res = await GET();
+    expect(res.status).toBe(503);
+  });
+});
