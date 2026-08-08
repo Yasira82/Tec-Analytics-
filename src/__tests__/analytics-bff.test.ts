@@ -261,4 +261,19 @@ describe('GET /api/bff/analytics/me/comparison', () => {
     expect(init.headers.Authorization).toBe('Bearer tok');
     fetchSpy.mockRestore();
   });
+
+  it('forwards a whitelisted segment (app source) but drops a malformed one', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ data: { available: false } }),
+    } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/comparison/route');
+
+    await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/comparison?segment=commerce' }));
+    expect((fetchSpy.mock.calls[0] as [string])[0]).toBe(`${GW}/api/analytics/me/comparison?segment=commerce`);
+
+    // a malformed segment (path chars) is dropped → base path, never reaches the JSON filter
+    await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/comparison?segment=%2E%2E%2Fx' }));
+    expect((fetchSpy.mock.calls[1] as [string])[0]).toBe(`${GW}/api/analytics/me/comparison`);
+    fetchSpy.mockRestore();
+  });
 });

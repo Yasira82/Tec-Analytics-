@@ -8,5 +8,12 @@ import { forwardAnalyticsGet } from '@/lib/bff/analyticsGateway';
 // The backend suppresses the whole comparison when the cohort is too small (fail safe) and
 // NEVER returns another merchant's data. Fail closed (401) without a session.
 export async function GET(req: NextRequest) {
-  return forwardAnalyticsGet(req, '/api/analytics/me/comparison');
+  // `segment` optionally narrows the cohort to one app source (an owned category
+  // dimension). Pass it through; the backend k-anonymizes per segment. Whitelist to a
+  // simple slug so nothing odd reaches the JSON-path filter.
+  const raw = req.nextUrl.searchParams.get('segment') ?? '';
+  const segment = /^[a-z0-9_-]{1,32}$/i.test(raw) ? raw.toLowerCase() : '';
+  const path = segment ? `/api/analytics/me/comparison?segment=${encodeURIComponent(segment)}`
+                       : '/api/analytics/me/comparison';
+  return forwardAnalyticsGet(req, path);
 }

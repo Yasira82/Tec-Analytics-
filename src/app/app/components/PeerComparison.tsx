@@ -10,22 +10,26 @@ import { useEffect, useState } from 'react';
 import { TEC_COLORS } from '@yasser172/tec-ui';
 
 type Comparison =
-  | { available: false; reason?: string; cohortFloor?: number; cohortSize?: number }
+  | { available: false; reason?: string; cohortFloor?: number; cohortSize?: number; segment?: string; ownSegment?: string | null }
   | {
       available: true; metric: string; windowDays: number; cohortSize: number;
+      segment: string; ownSegment: string | null;
       own: number; cohortMean: number; cohortMedian: number; percentile: number;
     };
 
 const gold = TEC_COLORS.gold;
 const sub  = TEC_COLORS.subtext;
+const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function PeerComparison() {
-  const [cmp, setCmp]       = useState<Comparison | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [cmp, setCmp]         = useState<Comparison | null>(null);
+  const [status, setStatus]   = useState<'loading' | 'ready' | 'error'>('loading');
+  const [segment, setSegment] = useState<'all' | string>('all');
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/bff/analytics/me/comparison', { credentials: 'include', cache: 'no-store' })
+    const q = segment === 'all' ? '' : `?segment=${encodeURIComponent(segment)}`;
+    fetch(`/api/bff/analytics/me/comparison${q}`, { credentials: 'include', cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { data?: Comparison } | null) => {
         if (!alive) return;
@@ -34,19 +38,30 @@ export function PeerComparison() {
       })
       .catch(() => { if (alive) setStatus('error'); });
     return () => { alive = false; };
-  }, []);
+  }, [segment]);
 
   if (status === 'loading' || status === 'error' || !cmp) return null;   // quiet if unavailable
 
+  // The caller's own segment (dominant app source) enables a "my segment" toggle.
+  const ownSegment = cmp.ownSegment ?? null;
+
   return (
     <div style={{ ...card, marginTop: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: TEC_COLORS.text }}>
-        You vs other Pi merchants <span style={{ color: sub, fontWeight: 400 }}>· last 30 days</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: TEC_COLORS.text }}>
+          You vs other Pi merchants <span style={{ color: sub, fontWeight: 400 }}>· last 30 days</span>
+        </div>
+        {ownSegment && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Toggle active={segment === 'all'} onClick={() => setSegment('all')}>All</Toggle>
+            <Toggle active={segment === ownSegment} onClick={() => setSegment(ownSegment)}>{label(ownSegment)}</Toggle>
+          </div>
+        )}
       </div>
 
       {!cmp.available ? (
         <p style={{ fontSize: 12, color: sub, margin: '10px 0 0', lineHeight: 1.6 }}>
-          Not enough active merchants to compare privately yet
+          Not enough active merchants{segment !== 'all' ? ` on ${label(segment)}` : ''} to compare privately yet
           {cmp.cohortFloor ? ` (need ${cmp.cohortFloor}+)` : ''}. As the Pi economy grows, you’ll
           see how your activity stacks up — always de-identified, never any individual merchant.
         </p>
@@ -67,11 +82,25 @@ export function PeerComparison() {
           </div>
 
           <p style={{ fontSize: 10.5, color: sub, margin: '12px 0 0', lineHeight: 1.5 }}>
-            Transactions per merchant across {cmp.cohortSize.toLocaleString()} active merchants · de-identified · counts, not value.
+            Transactions per merchant across {cmp.cohortSize.toLocaleString()} active merchants
+            {cmp.segment !== 'all' ? ` on ${label(cmp.segment)}` : ''} · de-identified · counts, not value.
           </p>
         </>
       )}
     </div>
+  );
+}
+
+function Toggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} style={{
+      background: active ? gold : 'transparent',
+      color: active ? '#0a0800' : sub,
+      border: `1px solid ${active ? gold : `${gold}44`}`,
+      borderRadius: 999, padding: '3px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+    }}>
+      {children}
+    </button>
   );
 }
 
