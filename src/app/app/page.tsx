@@ -12,6 +12,7 @@ import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
 import { usePiAuth, getAccessToken } from '@yasser172/tec-auth';
 import { ProUpgrade } from './components/ProUpgrade';
 import { ProHistory } from './components/ProHistory';
+import { MerchantIntelligence } from './components/MerchantIntelligence';
 
 // Read the `role` claim from the access-token JWT (payload only — display gate,
 // never a security decision; the analytics service enforces C-122 §5 server-side).
@@ -353,7 +354,7 @@ export default function AnalyticsDashboard() {
         {/* Platform aggregates: admin only (C-122 §5) */}
         {isLoading
           ? <p style={{ marginTop: 28, fontSize: 13, color: TEC_COLORS.subtext }}>Loading…</p>
-          : isAdmin ? <PlatformSections /> : <><OwnActivity /><MySales /></>}
+          : isAdmin ? <PlatformSections /> : <><MerchantIntelligence /><OwnActivity /><MySales /></>}
 
         {/* Analytics Pro — deeper/longer own-scope history + CSV export (C-105 §7) */}
         <ProHistory />

@@ -164,3 +164,45 @@ describe('GET /api/bff/analytics/me/export (Pro-only CSV)', () => {
     fetchSpy.mockRestore();
   });
 });
+
+// Merchant Intelligence (C-105 §6) — own-scope derived insight for every merchant. FREE
+// gets a 14-day window; Pro widens it to 90 (chosen server-side from the live subscription).
+describe('GET /api/bff/analytics/me/intelligence', () => {
+  const subResp = (plan: string) => ({
+    ok: true, status: 200,
+    json: async () => ({ data: { plan, isActive: true, isExpired: false } }),
+  } as Response);
+
+  it('returns 401 without a token (fail closed)', async () => {
+    const { GET } = await import('@/app/api/bff/analytics/me/intelligence/route');
+    const res = await GET(makeReq({ url: 'http://localhost/api/bff/analytics/me/intelligence' }));
+    expect(res.status).toBe(401);
+  });
+
+  it('FREE caller → 14-day window; response carries isPro:false', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(subResp('FREE'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { windowDays: 14, totalEvents: 3 } }) } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/intelligence/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/intelligence' }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.isPro).toBe(false);
+    const intelUrl = (fetchSpy.mock.calls[1] as [string])[0];
+    expect(intelUrl).toBe(`${GW}/api/analytics/me/intelligence?days=14`);
+    fetchSpy.mockRestore();
+  });
+
+  it('Pro caller → 90-day window; response carries isPro:true', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(subResp('PRO'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { windowDays: 90 } }) } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/intelligence/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/intelligence' }));
+    const json = await res.json();
+    expect(json.isPro).toBe(true);
+    const intelUrl = (fetchSpy.mock.calls[1] as [string])[0];
+    expect(intelUrl).toBe(`${GW}/api/analytics/me/intelligence?days=90`);
+    fetchSpy.mockRestore();
+  });
+});
