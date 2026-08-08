@@ -164,3 +164,116 @@ describe('GET /api/bff/analytics/me/export (Pro-only CSV)', () => {
     fetchSpy.mockRestore();
   });
 });
+
+// Merchant Intelligence (C-105 §6) — own-scope derived insight for every merchant. FREE
+// gets a 14-day window; Pro widens it to 90 (chosen server-side from the live subscription).
+describe('GET /api/bff/analytics/me/intelligence', () => {
+  const subResp = (plan: string) => ({
+    ok: true, status: 200,
+    json: async () => ({ data: { plan, isActive: true, isExpired: false } }),
+  } as Response);
+
+  it('returns 401 without a token (fail closed)', async () => {
+    const { GET } = await import('@/app/api/bff/analytics/me/intelligence/route');
+    const res = await GET(makeReq({ url: 'http://localhost/api/bff/analytics/me/intelligence' }));
+    expect(res.status).toBe(401);
+  });
+
+  it('FREE caller → 14-day window; response carries isPro:false', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(subResp('FREE'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { windowDays: 14, totalEvents: 3 } }) } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/intelligence/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/intelligence' }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.isPro).toBe(false);
+    const intelUrl = (fetchSpy.mock.calls[1] as [string])[0];
+    expect(intelUrl).toBe(`${GW}/api/analytics/me/intelligence?days=14`);
+    fetchSpy.mockRestore();
+  });
+
+  it('Pro caller → 90-day window; response carries isPro:true', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(subResp('PRO'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { windowDays: 90 } }) } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/intelligence/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/intelligence' }));
+    const json = await res.json();
+    expect(json.isPro).toBe(true);
+    const intelUrl = (fetchSpy.mock.calls[1] as [string])[0];
+    expect(intelUrl).toBe(`${GW}/api/analytics/me/intelligence?days=90`);
+    fetchSpy.mockRestore();
+  });
+});
+
+// Pi Economy Pulse (C-122 §5.2) — PUBLIC, de-identified aggregate board. No session
+// required (the whole Pi community sees it); the internal key is added server-side.
+describe('GET /api/bff/analytics/pulse (public, de-identified)', () => {
+  it('forwards WITHOUT any user token, with the internal key, and passes data through', async () => {
+    process.env.INTERNAL_SECRET = 'secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ data: { scope: 'aggregate', totalTransactions: 42, activeMerchants: 8 } }),
+    } as Response);
+
+    const { GET } = await import('@/app/api/bff/analytics/pulse/route');
+    const res  = await GET();
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.data.totalTransactions).toBe(42);
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    expect(url).toBe(`${GW}/api/analytics/pulse`);
+    expect(init.headers['x-internal-key']).toBe('secret');
+    expect(init.headers.Authorization).toBeUndefined();   // no user token — it's public
+    fetchSpy.mockRestore();
+  });
+
+  it('503 when the gateway is not configured', async () => {
+    process.env.API_GATEWAY_URL = '';
+    const { GET } = await import('@/app/api/bff/analytics/pulse/route');
+    const res = await GET();
+    expect(res.status).toBe(503);
+  });
+});
+
+// De-identified peer comparison (C-122 §5.2) — own-scope forward; the backend suppresses
+// small cohorts + never returns another merchant. The BFF forwards the session Bearer only.
+describe('GET /api/bff/analytics/me/comparison', () => {
+  it('returns 401 without a token (fail closed)', async () => {
+    const { GET } = await import('@/app/api/bff/analytics/me/comparison/route');
+    const res = await GET(makeReq({ url: 'http://localhost/api/bff/analytics/me/comparison' }));
+    expect(res.status).toBe(401);
+  });
+
+  it('forwards own-scope to the comparison endpoint with the Bearer token', async () => {
+    process.env.INTERNAL_SECRET = 'secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ success: true, data: { available: true, own: 5, cohortMean: 4, percentile: 80 } }),
+    } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/comparison/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/comparison' }));
+    expect(res.status).toBe(200);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    expect(url).toBe(`${GW}/api/analytics/me/comparison`);
+    expect(init.headers.Authorization).toBe('Bearer tok');
+    fetchSpy.mockRestore();
+  });
+
+  it('forwards a whitelisted segment (app source) but drops a malformed one', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ data: { available: false } }),
+    } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/comparison/route');
+
+    await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/comparison?segment=commerce' }));
+    expect((fetchSpy.mock.calls[0] as [string])[0]).toBe(`${GW}/api/analytics/me/comparison?segment=commerce`);
+
+    // a malformed segment (path chars) is dropped → base path, never reaches the JSON filter
+    await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/comparison?segment=%2E%2E%2Fx' }));
+    expect((fetchSpy.mock.calls[1] as [string])[0]).toBe(`${GW}/api/analytics/me/comparison`);
+    fetchSpy.mockRestore();
+  });
+});
