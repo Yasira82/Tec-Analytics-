@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
 import { usePiAuth, getAccessToken } from '@yasser172/tec-auth';
 import { ProUpgrade } from './components/ProUpgrade';
+import { ProHistory } from './components/ProHistory';
 
 // Read the `role` claim from the access-token JWT (payload only — display gate,
 // never a security decision; the analytics service enforces C-122 §5 server-side).
@@ -353,6 +354,9 @@ export default function AnalyticsDashboard() {
         {isLoading
           ? <p style={{ marginTop: 28, fontSize: 13, color: TEC_COLORS.subtext }}>Loading…</p>
           : isAdmin ? <PlatformSections /> : <><OwnActivity /><MySales /></>}
+
+        {/* Analytics Pro — deeper/longer own-scope history + CSV export (C-105 §7) */}
+        <ProHistory />
 
         {/* Recent events — own-scope (§5.1), available to every authenticated user */}
         <Section title="Recent events" state={events}>

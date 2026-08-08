@@ -97,3 +97,70 @@ describe('GET /api/bff/analytics/events', () => {
     fetchSpy.mockRestore();
   });
 });
+
+// Analytics Pro — CSV export of the caller's OWN activity (C-105 §7). The Pro gate is
+// enforced HERE at the BFF (fail closed → 403 without a live subscription); Analytics
+// never stores billing (P5). Own-scope only; the numbers are the same computed truth.
+describe('GET /api/bff/analytics/me/export (Pro-only CSV)', () => {
+  const subResp = (plan: string) => ({
+    ok: true, status: 200,
+    json: async () => ({ data: { plan, isActive: true, isExpired: false } }),
+  } as Response);
+
+  it('returns 401 without a token (fail closed)', async () => {
+    const { GET } = await import('@/app/api/bff/analytics/me/export/route');
+    const res = await GET(makeReq({ url: 'http://localhost/api/bff/analytics/me/export' }));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for a non-Pro (FREE) caller — export is a paid feature', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(subResp('FREE'));
+    const { GET } = await import('@/app/api/bff/analytics/me/export/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/export' }));
+    expect(res.status).toBe(403);
+    // it never reached the activity endpoint — only the subscription check ran
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    fetchSpy.mockRestore();
+  });
+
+  it('Pro caller → CSV of the 90-day/500-row own activity (correct upstream + escaping)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(subResp('PRO'))                     // 1) subscription = Pro
+      .mockResolvedValueOnce({                                   // 2) me/activity data
+        ok: true, status: 200,
+        json: async () => ({ data: [
+          { id: 'e1', type: 'payment.completed', created_at: '2026-08-01T10:00:00Z', payload: { amount: 5 } },
+          { id: 'e2', type: 'note', created_at: '2026-08-02T10:00:00Z', payload: 'has, comma "q"' },
+        ] }),
+      } as Response);
+
+    const { GET } = await import('@/app/api/bff/analytics/me/export/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/export' }));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/csv');
+    expect(res.headers.get('content-disposition')).toContain('attachment');
+
+    // hit the Pro window on the own-scope endpoint
+    const activityUrl = (fetchSpy.mock.calls[1] as [string])[0];
+    expect(activityUrl).toBe(`${GW}/api/analytics/me/activity?limit=500&days=90`);
+
+    const csv = await res.text();
+    const lines = csv.split('\r\n');
+    expect(lines[0]).toBe('id,type,created_at,payload');
+    expect(lines[1]).toContain('e1,payment.completed');
+    // the comma/quote payload is RFC-4180 quoted with doubled inner quotes
+    expect(lines[2]).toContain('"has, comma ""q"""');
+    fetchSpy.mockRestore();
+  });
+
+  it('passes an upstream own-scope failure through (e.g. 401 no user scope)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(subResp('PRO'))
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/export/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/export' }));
+    expect(res.status).toBe(401);
+    fetchSpy.mockRestore();
+  });
+});

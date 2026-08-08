@@ -43,3 +43,37 @@ export async function forwardGatewayGet(
 
 /** Back-compat alias — analytics-service reads go through the same authed forwarder. */
 export const forwardAnalyticsGet = forwardGatewayGet;
+
+/**
+ * The caller's LIVE Merchant-Pro entitlement (C-105 §7). Read from commerce (the
+ * Subscription owner, C-47) with the session JWT — Analytics never STORES billing
+ * truth (P5); it only reflects it to gate a Pro feature. Pro only while the period is
+ * live (active + not expired + a real paid plan). Any failure → false (fail closed, P6).
+ */
+export async function resolveProStatus(req: NextRequest): Promise<boolean> {
+  if (!GW) return false;
+  const token = req.cookies.get('tec_access_token')?.value ?? '';
+  if (!token) return false;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization:  `Bearer ${token}`,
+    'x-request-id': crypto.randomUUID(),
+  };
+  if (process.env.INTERNAL_SECRET) headers['x-internal-key'] = process.env.INTERNAL_SECRET;
+
+  try {
+    const res = await fetch(`${GW}/api/commerce/subscriptions/status`, { headers, cache: 'no-store' });
+    if (!res.ok) return false;
+    const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const s = (d.data ?? d) as Record<string, unknown>;
+    const plan = String(s.plan ?? s.tier ?? '').toUpperCase();
+    const active  = s.isActive === true || s.active === true || (plan !== '' && plan !== 'FREE');
+    const expired = s.isExpired === true;
+    const end     = s.current_period_end ?? s.currentPeriodEnd ?? s.expires_at;
+    const notExpired = !expired && (!end || new Date(String(end)).getTime() > Date.now());
+    return active && notExpired && plan !== '' && plan !== 'FREE';
+  } catch {
+    return false;
+  }
+}
