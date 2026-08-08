@@ -63,27 +63,38 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 /** Minimal inline bar chart (no chart lib — Pi-Browser safe; tec-ui charts pending C-105 §5). */
 function BarChart({ series }: { series: { label: string; value: number }[] }) {
-  const max = series.reduce((m, s) => Math.max(m, s.value), 0) || 1;
+  const max = series.reduce((m, s) => Math.max(m, Number.isFinite(s.value) ? s.value : 0), 0);
   if (series.length === 0) {
     return <div style={{ color: TEC_COLORS.subtext, fontSize: 13 }}>No data yet.</div>;
   }
+  // Honest empty state: when EVERY value is zero, don't draw a row of misleading equal
+  // bars — say so. (The platform metrics come from the dailyMetric aggregate, which can
+  // lag the live event counts; a flat row read as "broken", not "no aggregate yet".)
+  if (max <= 0) {
+    return <div style={{ color: TEC_COLORS.subtext, fontSize: 13, padding: '20px 0' }}>No daily totals for this period yet.</div>;
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140, marginTop: 8 }}>
-      {series.map((s, i) => (
-        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div
-            title={`${s.label}: ${s.value}`}
-            style={{
-              width: '100%',
-              height: `${Math.round((s.value / max) * 110)}px`,
-              minHeight: 2,
-              background: `linear-gradient(180deg, ${TEC_COLORS.gold}, ${TEC_COLORS.goldDark})`,
-              borderRadius: '4px 4px 0 0',
-            }}
-          />
-          <div style={{ fontSize: 9, color: TEC_COLORS.subtext, whiteSpace: 'nowrap' }}>{s.label}</div>
-        </div>
-      ))}
+      {series.map((s, i) => {
+        const v = Number.isFinite(s.value) ? s.value : 0;
+        // A zero day sits on the baseline (1px); any nonzero day gets a visible floor
+        // (6px) so small bars never vanish next to an outlier — real shape reads clearly.
+        const h = v <= 0 ? 1 : Math.max(6, Math.round((v / max) * 106));
+        return (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div
+              title={`${s.label}: ${s.value}`}
+              style={{
+                width: '100%',
+                height: `${h}px`,
+                background: v <= 0 ? TEC_COLORS.border : `linear-gradient(180deg, ${TEC_COLORS.gold}, ${TEC_COLORS.goldDark})`,
+                borderRadius: '4px 4px 0 0',
+              }}
+            />
+            <div style={{ fontSize: 9, color: TEC_COLORS.subtext, whiteSpace: 'nowrap' }}>{s.label}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -354,7 +365,17 @@ export default function AnalyticsDashboard() {
         {/* Platform aggregates: admin only (C-122 §5) */}
         {isLoading
           ? <p style={{ marginTop: 28, fontSize: 13, color: TEC_COLORS.subtext }}>Loading…</p>
-          : isAdmin ? <PlatformSections /> : <><MerchantIntelligence /><OwnActivity /><MySales /></>}
+          : (
+            <>
+              {/* Platform aggregates stay admin-only (C-122 §5 SOVEREIGN). */}
+              {isAdmin && <PlatformSections />}
+              {/* Merchant Intelligence (+ peer comparison) is own-scope — everyone sees
+                  their OWN activity, admins included (an admin is a merchant too). */}
+              <MerchantIntelligence />
+              {/* Own activity + sales are the non-admin merchant panels. */}
+              {!isAdmin && <><OwnActivity /><MySales /></>}
+            </>
+          )}
 
         {/* Analytics Pro — deeper/longer own-scope history + CSV export (C-105 §7) */}
         <ProHistory />
