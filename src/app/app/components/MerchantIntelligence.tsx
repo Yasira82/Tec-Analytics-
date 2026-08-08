@@ -10,6 +10,7 @@
 // Analytics never stores billing — P5). Charts are inline + Pi-Browser safe (no libraries).
 import { useEffect, useState } from 'react';
 import { TEC_COLORS } from '@yasser172/tec-ui';
+import { PeerComparison } from './PeerComparison';
 
 interface Intel {
   windowDays:   number;
@@ -106,6 +107,9 @@ export function MerchantIntelligence() {
               <ActivityMix items={intel.topActivity} total={intel.totalEvents} />
             </div>
           )}
+
+          {/* De-identified peer comparison — renders itself only when a cohort exists. */}
+          <PeerComparison />
 
           {!isPro && (
             <div style={{ ...cardBox, marginTop: 12, borderColor: `${gold}44` }}>

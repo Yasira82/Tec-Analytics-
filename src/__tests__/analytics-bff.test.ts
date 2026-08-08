@@ -237,3 +237,28 @@ describe('GET /api/bff/analytics/pulse (public, de-identified)', () => {
     expect(res.status).toBe(503);
   });
 });
+
+// De-identified peer comparison (C-122 §5.2) — own-scope forward; the backend suppresses
+// small cohorts + never returns another merchant. The BFF forwards the session Bearer only.
+describe('GET /api/bff/analytics/me/comparison', () => {
+  it('returns 401 without a token (fail closed)', async () => {
+    const { GET } = await import('@/app/api/bff/analytics/me/comparison/route');
+    const res = await GET(makeReq({ url: 'http://localhost/api/bff/analytics/me/comparison' }));
+    expect(res.status).toBe(401);
+  });
+
+  it('forwards own-scope to the comparison endpoint with the Bearer token', async () => {
+    process.env.INTERNAL_SECRET = 'secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ success: true, data: { available: true, own: 5, cohortMean: 4, percentile: 80 } }),
+    } as Response);
+    const { GET } = await import('@/app/api/bff/analytics/me/comparison/route');
+    const res = await GET(makeReq({ cookies: { tec_access_token: 'tok' }, url: 'http://localhost/api/bff/analytics/me/comparison' }));
+    expect(res.status).toBe(200);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    expect(url).toBe(`${GW}/api/analytics/me/comparison`);
+    expect(init.headers.Authorization).toBe('Bearer tok');
+    fetchSpy.mockRestore();
+  });
+});
