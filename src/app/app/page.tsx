@@ -215,8 +215,8 @@ function OwnActivity() {
       <div style={{ ...card, borderColor: `${TEC_COLORS.gold}55`, marginBottom: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: TEC_COLORS.gold, marginBottom: 4 }}>Private to you</div>
         <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: 0, lineHeight: 1.6 }}>
-          These are your own figures only. Ecosystem-wide aggregates are admin-only.
-          Upgrade to Merchant Pro for richer business intelligence as it ships.
+          These are your own figures only. Upgrade to Merchant Pro for richer
+          business insights as they ship.
         </p>
       </div>
 
@@ -341,7 +341,7 @@ export default function AnalyticsDashboard() {
             <div>
               <h1 style={{ fontSize: 24, fontWeight: 900, color: TEC_COLORS.gold, margin: 0 }}>TEC Analytics</h1>
               <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: '2px 0 0' }}>
-                {isAdmin ? 'Platform intelligence · eventual consistency' : 'Your activity'}
+                {isAdmin ? 'Platform insights' : 'Your activity'}
               </p>
             </div>
           </div>
@@ -397,7 +397,7 @@ export default function AnalyticsDashboard() {
         </Section>
 
         <p style={{ marginTop: 32, fontSize: 11, color: TEC_COLORS.subtext }}>
-          Source of truth for transactions is tec-payment-service; figures here are aggregates and may lag.
+          Figures here are summaries and update periodically, so they may differ slightly from your live totals.
         </p>
       </div>
     </main>
