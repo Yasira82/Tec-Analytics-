@@ -215,8 +215,8 @@ function OwnActivity() {
       <div style={{ ...card, borderColor: `${TEC_COLORS.gold}55`, marginBottom: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: TEC_COLORS.gold, marginBottom: 4 }}>Private to you</div>
         <p style={{ fontSize: 12, color: TEC_COLORS.subtext, margin: 0, lineHeight: 1.6 }}>
-          These are your own figures only. Ecosystem-wide aggregates are admin-only
-          (C-122 §5). Upgrade to Merchant Pro for richer business intelligence as it ships.
+          These are your own figures only. Ecosystem-wide aggregates are admin-only.
+          Upgrade to Merchant Pro for richer business intelligence as it ships.
         </p>
       </div>
 
