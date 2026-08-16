@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { TEC_COLORS, formatPi, formatDate } from '@yasser172/tec-ui';
 import { usePiAuth, getAccessToken } from '@yasser172/tec-auth';
+import { useMe } from '@/lib-client/hooks/useMe';
 import { ProUpgrade } from './components/ProUpgrade';
 import { ProHistory } from './components/ProHistory';
 import { MerchantIntelligence } from './components/MerchantIntelligence';
@@ -310,6 +311,8 @@ function MySales() {
 
 export default function AnalyticsDashboard() {
   const { user, isLoading, logout } = usePiAuth();
+  const me = useMe(); // server-resolved Pi username (Pi Browser hides tec_user from client JS — C-123 §3)
+  const piName = me.username ?? user?.piUsername ?? null;
   // Prefer the fresh access-token role (refreshes ~hourly) over the login-time
   // tec_user cookie, so an admin grant shows up without a full re-login.
   const isAdmin = user?.role === 'admin' || tokenRole() === 'admin';
@@ -346,9 +349,9 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {user && (
+            {piName && (
               <span style={{ fontSize: 12, color: TEC_COLORS.subtext }}>
-                @{user.piUsername}{isAdmin ? ' · admin' : ''}
+                @{piName}{isAdmin ? ' · admin' : ''}
               </span>
             )}
             <button
