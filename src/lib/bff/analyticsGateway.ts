@@ -66,7 +66,11 @@ export async function resolveProStatus(req: NextRequest): Promise<boolean> {
     const res = await fetch(`${GW}/api/commerce/subscriptions/status`, { headers, cache: 'no-store' });
     if (!res.ok) return false;
     const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    const s = (d.data ?? d) as Record<string, unknown>;
+    // Commerce returns the NESTED contract { success, data: { subscription: {...} } }
+    // (guarded by subscription.contract.spec). Reading d.data.plan (flat) always
+    // resolves '' → FREE, which 403'd export for genuine Pro users. Unwrap .subscription.
+    const outer = (d.data ?? d) as Record<string, unknown>;
+    const s = ((outer.subscription ?? outer) ?? {}) as Record<string, unknown>;
     const plan = String(s.plan ?? s.tier ?? '').toUpperCase();
     const active  = s.isActive === true || s.active === true || (plan !== '' && plan !== 'FREE');
     const expired = s.isExpired === true;
