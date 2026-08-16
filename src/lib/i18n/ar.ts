@@ -22,4 +22,17 @@ export const ar = {
     appsTitle: 'منظومة TEC',
     appsCount: '24 تطبيق',
   },
+  analytics: {
+    brand:          'TEC Analytics',
+    platformInsights: 'رؤى المنصة',
+    yourActivity:   'نشاطك',
+    nav: { overview: 'نظرة عامة', sales: 'المبيعات', events: 'الأحداث', settings: 'الإعدادات' },
+    settings: {
+      profile: 'الملف الشخصي', planFree: 'مجاني', planPro: 'Pro', admin: 'مشرف',
+      connectedPi: 'متصل بـ Pi', notSignedIn: 'غير مسجّل الدخول', member: 'عضو TEC',
+      appearance: 'المظهر', language: 'اللغة', languageDesc: 'لغة العرض',
+      about: 'حول', version: 'الإصدار', domain: 'النطاق', ecosystem: 'المنظومة',
+      builtOn: 'مبني على', builtOnPi: 'شبكة Pi', logout: 'تسجيل الخروج',
+    },
+  },
 };
