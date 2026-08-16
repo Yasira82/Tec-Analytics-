@@ -16,12 +16,15 @@ export function ProHistory() {
   const [msg, setMsg]       = useState('');
 
   // Reflect the live subscription (same read as ProUpgrade — commerce-owned, C-47).
+  // Only flip Pro true/false on a DEFINITIVE subscription response. On a transient
+  // failure (network blip / non-200) leave it null → the panel stays hidden rather
+  // than telling a paying Pro user "Merchant Pro required" (the intermittent flip).
   useEffect(() => {
     let alive = true;
     fetch('/api/bff/subscription', { credentials: 'include', cache: 'no-store' })
-      .then((r) => r.json()).catch(() => ({}))
-      .then((j: Record<string, unknown>) => {
-        if (!alive) return;
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: Record<string, unknown> | null) => {
+        if (!alive || !j) return; // transient — keep null (hidden), never claim non-Pro
         const d = (j?.data ?? j ?? {}) as Record<string, unknown>;
         const s = ((d?.subscription ?? d) ?? {}) as Record<string, unknown>;
         const end  = typeof s.current_period_end === 'string' ? new Date(s.current_period_end) : null;
@@ -29,7 +32,7 @@ export function ProHistory() {
         const plan = String(s.plan ?? '').toUpperCase();
         setIsPro(live && (plan === 'PRO' || plan === 'ENTERPRISE'));
       })
-      .catch(() => { if (alive) setIsPro(false); });
+      .catch(() => { /* transient — leave null (hidden); don't flip a Pro user to locked */ });
     return () => { alive = false; };
   }, []);
 

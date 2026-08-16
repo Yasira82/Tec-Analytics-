@@ -379,8 +379,10 @@ export default function AnalyticsDashboard() {
 
         {tab === 'sales' && (
           <>
-            {/* Own sales (non-admin merchant panel) + deeper own-scope Pro history. */}
-            {!isAdmin && <MySales />}
+            {/* Your own sales — own-scope (seller = session identity, C-105 §6), shown to
+                everyone incl. admins (an admin is a merchant too; it only ever shows the
+                caller's OWN sales, so there is no cross-merchant leak). */}
+            <MySales />
             {/* Analytics Pro — deeper/longer own-scope history + CSV export (C-105 §7) */}
             <ProHistory />
           </>
