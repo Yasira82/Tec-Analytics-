@@ -31,6 +31,8 @@ export interface PaymentResult {
 
 const APP_SOURCE = 'analytics';
 
+import { hubPaymentOrigin } from '@/lib/pi-network';
+
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://hub.tecosystem.app';
 
 /**
@@ -68,7 +70,7 @@ export const redirectToHubPayment = (params: {
     return_url: `${window.location.origin}/app`,
     ...(params.memo ? { memo: params.memo } : {}),
   });
-  window.location.href = `${HUB_URL}/hub?${q.toString()}`;
+  window.location.href = `${hubPaymentOrigin(HUB_URL)}/hub?${q.toString()}`;
 };
 
 /** Step 1 — create the payment record in tec-payment-service; returns internal id. */
