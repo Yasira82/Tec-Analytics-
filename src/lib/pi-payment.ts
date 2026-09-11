@@ -31,7 +31,7 @@ export interface PaymentResult {
 
 const APP_SOURCE = 'analytics';
 
-import { hubPaymentOrigin } from '@/lib/pi-network';
+import { hubPaymentOrigin, isHubReferrer } from '@/lib/pi-network';
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://hub.tecosystem.app';
 
@@ -46,7 +46,7 @@ export const isHubNavigation = (): boolean => {
   try {
     if (window.sessionStorage.getItem('__tec_hub_entry') === '1') return true;
   } catch { /* storage unavailable — fall back to referrer */ }
-  return document.referrer.toLowerCase().includes('hub.tecosystem.app');
+  return isHubReferrer(document.referrer);
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://analytics.tecosystem.app';
