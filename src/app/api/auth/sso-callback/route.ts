@@ -14,6 +14,7 @@ import { HUB_HOSTS }                 from '@/lib/pi-network';
 const ALLOWED_AUDIENCES = [
   'https://tec-analytics-app.vercel.app',
   'https://analytics.tecosystem.app',
+  'https://analytics-test.tecosystem.app',
 ];
 const DEFAULT_REDIRECT = '/app';
 

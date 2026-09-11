@@ -63,7 +63,8 @@ export default function RootLayout({
                 try {
                   // appId is redundant when the domain is Portal-registered, but
                   // the other apps pass it — kept for parity/robustness.
-                    var __isTestnetHost = /\\.vercel\\.app$/i.test(location.hostname);
+                    var __isTestnetHost = /\\.vercel\\.app$/i.test(location.hostname)
+                      || /-test\\.tecosystem\\.app$/i.test(location.hostname);
                     // SANDBOX IS NOT TESTNET. The HOST decides which Pi APP the
                     // visitor is in (and so which network the server approves
                     // against); "sandbox" points the SDK at Pi's SANDBOX
