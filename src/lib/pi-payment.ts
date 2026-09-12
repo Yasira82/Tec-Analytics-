@@ -31,6 +31,9 @@ export interface PaymentResult {
 
 const APP_SOURCE = 'analytics';
 
+import { hubPaymentOrigin, isHubReferrer } from '@/lib/pi-network';
+import { piSession } from '@/lib/pi/pi-session';
+
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://hub.tecosystem.app';
 
 /**
@@ -44,7 +47,7 @@ export const isHubNavigation = (): boolean => {
   try {
     if (window.sessionStorage.getItem('__tec_hub_entry') === '1') return true;
   } catch { /* storage unavailable — fall back to referrer */ }
-  return document.referrer.toLowerCase().includes('hub.tecosystem.app');
+  return isHubReferrer(document.referrer);
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://analytics.tecosystem.app';
@@ -68,7 +71,7 @@ export const redirectToHubPayment = (params: {
     return_url: `${window.location.origin}/app`,
     ...(params.memo ? { memo: params.memo } : {}),
   });
-  window.location.href = `${HUB_URL}/hub?${q.toString()}`;
+  window.location.href = `${hubPaymentOrigin(HUB_URL)}/hub?${q.toString()}`;
 };
 
 /** Step 1 — create the payment record in tec-payment-service; returns internal id. */
@@ -109,19 +112,13 @@ export const createU2APayment = async (
     const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    try {
-      await window.Pi.authenticate(['username', 'payments'], async (incomplete: unknown) => {
-        const pid = (incomplete as { identifier?: string } | null)?.identifier;
-        if (!pid) return;
-        try {
-          await fetch('/api/bff/payment/resolve-incomplete', {
-            method: 'POST', credentials: 'include', headers,
-            body: JSON.stringify({ pi_payment_id: pid }),
-          });
-        } catch {}
-      });
-    } catch (authErr) {
-      done({ status: 'error', success: false, message: 'Pi auth failed: ' + (authErr instanceof Error ? authErr.message : String(authErr)) });
+    // The handshake normally already happened at page load (PiWarmup), so this
+    // resolves immediately and the tap goes straight to createPayment. It is a
+    // gate, not a second call: if a warm-up is still running this JOINS it —
+    // two concurrent Pi.authenticate calls are what Pi Browser answers neither
+    // of. See lib/pi/pi-session.ts.
+    if (!(await piSession.ensureAuth())) {
+      done({ status: 'error', success: false, message: 'Pi auth failed — please try again.' });
       return;
     }
 

@@ -1,3 +1,5 @@
+import { PiWarmup } from '@/components/pi/PiWarmup';
+import { HUB_HOSTS } from '@/lib/pi-network';
 import type { Metadata } from 'next';
 import '@/styles/tec-design-tokens.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -25,10 +27,8 @@ export default function RootLayout({
           html, body { height: 100%; width: 100%; background: #050816; }
           body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
         `}</style>
-        <script
-          src="https://sdk.minepi.com/pi-sdk.js"
-          async
-        />
+        {/* The Pi SDK is NOT loaded here. It is injected below, and ONLY when
+            this is not a Hub-owned session — see the note in that script. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
@@ -40,17 +40,48 @@ export default function RootLayout({
                 // Never Pi.init() here (it poisons the session and breaks the Hub
                 // PaymentModal / Mode-2). The SSO landing persists the flag;
                 // referrer covers direct hub->app hops.
+                //
+                // BOTH Hub hosts. The list is interpolated from
+                // lib/pi-network.ts (HUB_HOSTS) because this script runs before
+                // any module and cannot import — but it must not become a
+                // second, drifting copy of the answer. It named only the
+                // Mainnet Hub, so a hop from the Testnet Hub ran Pi.init() into
+                // a session the Hub owns and every later Pi call went silent.
+                var __hubHosts = ${JSON.stringify(HUB_HOSTS)};
+                var __fromHub = false;
                 try {
-                  if (sessionStorage.getItem('__tec_hub_entry') === '1' ||
-                      document.referrer.toLowerCase().indexOf('hub.tecosystem.app') !== -1) {
+                  __fromHub = !!document.referrer &&
+                    __hubHosts.indexOf(new URL(document.referrer).hostname.toLowerCase()) !== -1;
+                } catch (e) {}
+                try {
+                  if (sessionStorage.getItem('__tec_hub_entry') === '1' || __fromHub) {
                     window.__TEC_PI_FOREIGN_SESSION = true; setReady(); return;
                   }
                 } catch(e) {}
-                if (typeof window.Pi === 'undefined') { setTimeout(initPi, 150); return; }
+                // The SDK is requested ONLY here — after the hub-entry branch above
+                // has returned. In a Hub-owned session it is never even fetched:
+                // pulling pi-sdk.js opens Pi's bridge on this origin whether or
+                // not init() is called, and ADR-007 says an app in that session
+                // must not touch Pi. Loading its SDK is touching it.
+                if (typeof window.Pi === 'undefined') {
+                  if (!window.__TEC_PI_SDK_REQUESTED) {
+                    window.__TEC_PI_SDK_REQUESTED = true;
+                    var __s = document.createElement('script');
+                    __s.src = 'https://sdk.minepi.com/pi-sdk.js';
+                    __s.async = true;
+                    __s.onerror = function () {
+                      window.__TEC_PI_ERROR = true;
+                      window.dispatchEvent(new Event('tec-pi-error'));
+                    };
+                    document.head.appendChild(__s);
+                  }
+                  setTimeout(initPi, 150); return;
+                }
                 try {
                   // appId is redundant when the domain is Portal-registered, but
                   // the other apps pass it — kept for parity/robustness.
-                    var __isTestnetHost = /\\.vercel\\.app$/i.test(location.hostname);
+                    var __isTestnetHost = /\\.vercel\\.app$/i.test(location.hostname)
+                      || /-test\\.tecosystem\\.app$/i.test(location.hostname);
                     // SANDBOX IS NOT TESTNET. The HOST decides which Pi APP the
                     // visitor is in (and so which network the server approves
                     // against); "sandbox" points the SDK at Pi's SANDBOX
@@ -83,7 +114,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
+      <body><PiWarmup /><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
     </html>
   );
 }
