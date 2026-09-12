@@ -1,3 +1,4 @@
+import { PiWarmup } from '@/components/pi/PiWarmup';
 import { HUB_HOSTS } from '@/lib/pi-network';
 import type { Metadata } from 'next';
 import '@/styles/tec-design-tokens.css';
@@ -26,10 +27,8 @@ export default function RootLayout({
           html, body { height: 100%; width: 100%; background: #050816; }
           body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
         `}</style>
-        <script
-          src="https://sdk.minepi.com/pi-sdk.js"
-          async
-        />
+        {/* The Pi SDK is NOT loaded here. It is injected below, and ONLY when
+            this is not a Hub-owned session — see the note in that script. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
@@ -59,7 +58,25 @@ export default function RootLayout({
                     window.__TEC_PI_FOREIGN_SESSION = true; setReady(); return;
                   }
                 } catch(e) {}
-                if (typeof window.Pi === 'undefined') { setTimeout(initPi, 150); return; }
+                // The SDK is requested ONLY here — after the hub-entry branch above
+                // has returned. In a Hub-owned session it is never even fetched:
+                // pulling pi-sdk.js opens Pi's bridge on this origin whether or
+                // not init() is called, and ADR-007 says an app in that session
+                // must not touch Pi. Loading its SDK is touching it.
+                if (typeof window.Pi === 'undefined') {
+                  if (!window.__TEC_PI_SDK_REQUESTED) {
+                    window.__TEC_PI_SDK_REQUESTED = true;
+                    var __s = document.createElement('script');
+                    __s.src = 'https://sdk.minepi.com/pi-sdk.js';
+                    __s.async = true;
+                    __s.onerror = function () {
+                      window.__TEC_PI_ERROR = true;
+                      window.dispatchEvent(new Event('tec-pi-error'));
+                    };
+                    document.head.appendChild(__s);
+                  }
+                  setTimeout(initPi, 150); return;
+                }
                 try {
                   // appId is redundant when the domain is Portal-registered, but
                   // the other apps pass it — kept for parity/robustness.
@@ -97,7 +114,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
+      <body><PiWarmup /><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
     </html>
   );
 }
