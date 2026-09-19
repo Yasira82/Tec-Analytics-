@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import '@/styles/tec-design-tokens.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LocaleProvider } from '@/lib/i18n';
+import { ArrivalReport } from '@/components/pioneer/ArrivalReport';
 
 export const metadata: Metadata = {
   title:       'TEC Analytics',
@@ -114,7 +115,8 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body><PiWarmup /><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
+      <body><PiWarmup />
+        <ArrivalReport /><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
     </html>
   );
 }
