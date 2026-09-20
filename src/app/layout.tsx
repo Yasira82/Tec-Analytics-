@@ -5,6 +5,7 @@ import '@/styles/tec-design-tokens.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LocaleProvider } from '@/lib/i18n';
 import { ArrivalReport } from '@/components/pioneer/ArrivalReport';
+import { QuestReturn } from '@/components/pioneer/QuestReturn';
 
 export const metadata: Metadata = {
   title:       'TEC Analytics',
@@ -116,7 +117,7 @@ export default function RootLayout({
         />
       </head>
       <body><PiWarmup />
-        <ArrivalReport /><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
+        <ArrivalReport /><QuestReturn /><ErrorBoundary><LocaleProvider>{children}</LocaleProvider></ErrorBoundary></body>
     </html>
   );
 }
