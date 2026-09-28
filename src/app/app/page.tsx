@@ -76,15 +76,23 @@ function BarChart({ series }: { series: { label: string; value: number }[] }) {
   if (max <= 0) {
     return <div style={{ color: TEC_COLORS.subtext, fontSize: 13, padding: '20px 0' }}>No daily totals for this period yet.</div>;
   }
+  // C3 — every column used to be as wide as its own nowrap label, so 30 daily columns
+  // (label + 6px gap each) were wider than a phone: the chart drew 11 of 30 days and
+  // ran past the card, and the tallest VISIBLE bar read as the latest day. Columns
+  // may now shrink to nothing (minWidth 0) and share the width; a dense series labels
+  // only every Nth column and the last, so the labels still fit.
+  const dense    = series.length > 12;
+  const every    = dense ? Math.ceil(series.length / 6) : 1;
+  const showLabel = (i: number) => !dense || i % every === 0 || i === series.length - 1;
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140, marginTop: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: dense ? 2 : 6, height: 140, marginTop: 8, width: '100%', overflow: 'hidden' }}>
       {series.map((s, i) => {
         const v = Number.isFinite(s.value) ? s.value : 0;
         // A zero day sits on the baseline (1px); any nonzero day gets a visible floor
         // (6px) so small bars never vanish next to an outlier — real shape reads clearly.
         const h = v <= 0 ? 1 : Math.max(6, Math.round((v / max) * 106));
         return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <div
               title={`${s.label}: ${s.value}`}
               style={{
@@ -94,7 +102,15 @@ function BarChart({ series }: { series: { label: string; value: number }[] }) {
                 borderRadius: '4px 4px 0 0',
               }}
             />
-            <div style={{ fontSize: 9, color: TEC_COLORS.subtext, whiteSpace: 'nowrap' }}>{s.label}</div>
+            <div style={{
+              fontSize: 9, color: TEC_COLORS.subtext, whiteSpace: 'nowrap', height: 11,
+              // A sparse label may spill over its (empty) neighbours; a label on every
+              // column is clipped to its own column instead of widening it.
+              ...(dense ? {} : { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }),
+              // The first and last labels hang INWARD, or the card edge cuts them.
+              ...(dense && i === 0 ? { alignSelf: 'flex-start' } : {}),
+              ...(dense && i === series.length - 1 && i !== 0 ? { alignSelf: 'flex-end' } : {}),
+            }}>{showLabel(i) ? s.label : ''}</div>
           </div>
         );
       })}
