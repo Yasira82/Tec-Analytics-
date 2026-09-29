@@ -16,6 +16,7 @@ import { SettingsView } from './components/SettingsView';
 import { ProUpgrade } from './components/ProUpgrade';
 import { ProHistory } from './components/ProHistory';
 import { MerchantIntelligence } from './components/MerchantIntelligence';
+import { PiNetworkPanel } from './components/PiNetworkPanel';
 
 // Read the `role` claim from the access-token JWT (payload only — display gate,
 // never a security decision; the analytics service enforces C-122 §5 server-side).
@@ -385,6 +386,8 @@ export default function AnalyticsDashboard() {
                   <MerchantIntelligence />
                   {/* Own activity is the non-admin merchant panel. */}
                   {!isAdmin && <OwnActivity />}
+                  {/* Public Pi Network numbers — the same card as /pulse, for everyone. */}
+                  <PiNetworkPanel />
                 </>
               )}
             <p style={{ marginTop: 32, fontSize: 11, color: TEC_COLORS.subtext }}>
