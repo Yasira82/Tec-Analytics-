@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { TEC_COLORS } from '@yasser172/tec-ui';
+import { describeNetwork, type PiNetwork } from '@/lib/pulse/network';
 
 interface Pulse {
   generatedAt:       string;
@@ -18,6 +19,7 @@ interface Pulse {
   activeMerchants:   number | null;
   cohortFloor:       number;
   activityByDay:     { date: string; transactions: number }[];
+  network?:          PiNetwork;   // Pi's public Horizon — see lib/pulse/network.ts
 }
 
 const gold = TEC_COLORS.gold;
@@ -72,6 +74,8 @@ export default function PiEconomyPulse() {
               <DailyBars series={pulse.activityByDay} />
             </div>
 
+            <NetworkSection network={pulse.network} />
+
             <p style={{ fontSize: 11, color: sub, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
               De-identified aggregate signals · updated {new Date(pulse.generatedAt).toLocaleString()}.<br />
               Individual merchants and users are never shown. Activity, not value — this is not investment information.
@@ -86,6 +90,31 @@ export default function PiEconomyPulse() {
         </div>
       </div>
     </main>
+  );
+}
+
+// Pi Network activity, read from Pi's public Horizon API by the service. Activity only:
+// no supply, no price. Unavailable is said as unavailable — never shown as zeros.
+function NetworkSection({ network }: { network?: PiNetwork }) {
+  const v = describeNetwork(network, Date.now());
+  return (
+    <div style={{ ...card, marginTop: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 700 }}>
+        Pi Network <span style={{ color: sub, fontWeight: 400 }}>· live from the Pi blockchain</span>
+      </div>
+      {!v.available ? (
+        <div style={{ fontSize: 12.5, color: sub, marginTop: 10 }}>{v.message}</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 12 }}>
+          <Stat label="Latest ledger" value={v.ledger!} hint={`closed ${v.lastClosed}`} />
+          <Stat label="Transactions" value={v.transactions!} hint={v.window} />
+          <Stat label="Operations" value={v.operations!} hint={v.window} />
+        </div>
+      )}
+      <div style={{ fontSize: 10.5, color: sub, marginTop: 10 }}>
+        Read from Pi&apos;s public Horizon API{v.readAt ? ` at ${new Date(v.readAt).toLocaleTimeString()}` : ''}. Network activity — not supply, not price.
+      </div>
+    </div>
   );
 }
 
