@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { TEC_COLORS } from '@yasser172/tec-ui';
-import { describeNetwork, type PiNetwork } from '@/lib/pulse/network';
+import { describeNetwork, describeSupply, type PiNetwork, type PiSupply } from '@/lib/pulse/network';
 
 interface Pulse {
   generatedAt:       string;
@@ -20,6 +20,7 @@ interface Pulse {
   cohortFloor:       number;
   activityByDay:     { date: string; transactions: number }[];
   network?:          PiNetwork;   // Pi's public Horizon — see lib/pulse/network.ts
+  supply?:           PiSupply;    // Pi's own Mainnet supply figures
 }
 
 const gold = TEC_COLORS.gold;
@@ -74,7 +75,7 @@ export default function PiEconomyPulse() {
               <DailyBars series={pulse.activityByDay} />
             </div>
 
-            <NetworkSection network={pulse.network} />
+            <NetworkSection network={pulse.network} supply={pulse.supply} />
 
             <p style={{ fontSize: 11, color: sub, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
               De-identified aggregate signals · updated {new Date(pulse.generatedAt).toLocaleString()}.<br />
@@ -95,8 +96,9 @@ export default function PiEconomyPulse() {
 
 // Pi Network activity, read from Pi's public Horizon API by the service. Activity only:
 // no supply, no price. Unavailable is said as unavailable — never shown as zeros.
-function NetworkSection({ network }: { network?: PiNetwork }) {
+function NetworkSection({ network, supply }: { network?: PiNetwork; supply?: PiSupply }) {
   const v = describeNetwork(network, Date.now());
+  const sv = describeSupply(supply);
   return (
     <div style={{ ...card, marginTop: 16 }}>
       <div style={{ fontSize: 13, fontWeight: 700 }}>
@@ -111,8 +113,20 @@ function NetworkSection({ network }: { network?: PiNetwork }) {
           <Stat label="Operations" value={v.operations!} hint={v.window} />
         </div>
       )}
+      <div style={{ fontSize: 12, fontWeight: 700, marginTop: 16 }}>
+        Mainnet supply <span style={{ color: sub, fontWeight: 400 }}>· as reported by Pi</span>
+      </div>
+      {!sv.available ? (
+        <div style={{ fontSize: 12.5, color: sub, marginTop: 8 }}>{sv.message}</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 10 }}>
+          <Stat label="Circulating" value={sv.circulating!} />
+          <Stat label="Locked" value={sv.locked!} />
+          <Stat label="Total supply" value={sv.total!} hint={`Pi, updated ${new Date(sv.updatedAt!).toLocaleString()}`} />
+        </div>
+      )}
       <div style={{ fontSize: 10.5, color: sub, marginTop: 10 }}>
-        Read from Pi&apos;s public Horizon API{v.readAt ? ` at ${new Date(v.readAt).toLocaleTimeString()}` : ''}. Network activity — not supply, not price.
+        Read from Pi&apos;s public Horizon API and Pi&apos;s Mainnet supply figures{v.readAt ? ` at ${new Date(v.readAt).toLocaleTimeString()}` : ''}. Network activity — not supply, not price.
       </div>
     </div>
   );
