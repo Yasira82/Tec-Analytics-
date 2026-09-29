@@ -65,3 +65,47 @@ export function describeNetwork(n: PiNetwork | null | undefined, now: number): N
     readAt:       n.readAt,
   };
 }
+
+// ── Pi's own Mainnet supply figures (service: pi-supply.ts) ─────────────────
+// Pi's numbers, labelled as Pi's. Billions with two decimals: the exact figure has
+// eleven digits and six decimals, which reads as noise on a phone.
+
+export type PiSupply =
+  | {
+      available:             true;
+      readAt:                string;
+      circulatingSupply:     number;
+      migratedMiningRewards: number;
+      totalLocked:           number;
+      totalSupply:           number;
+      updatedAt:             string;
+    }
+  | { available: false; readAt?: string; reason?: string };
+
+export interface SupplyView {
+  available:    boolean;
+  message?:     string;
+  circulating?: string;
+  locked?:      string;
+  total?:       string;
+  updatedAt?:   string;
+}
+
+export const billions = (n: number): string => `${(n / 1e9).toFixed(2)} B π`;
+
+const figure = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
+
+export function describeSupply(s: PiSupply | null | undefined): SupplyView {
+  const unavailable = { available: false, message: "Pi's supply figures are unavailable right now." };
+  if (!s || s.available !== true) return unavailable;
+  if (![s.circulatingSupply, s.totalLocked, s.totalSupply].every(figure) || Number.isNaN(Date.parse(s.updatedAt))) {
+    return unavailable;
+  }
+  return {
+    available:   true,
+    circulating: billions(s.circulatingSupply),
+    locked:      billions(s.totalLocked),
+    total:       billions(s.totalSupply),
+    updatedAt:   s.updatedAt,
+  };
+}
