@@ -1,5 +1,7 @@
 'use client';
 
+import { SignInGate } from '@/components/pi/SignInGate';
+
 // TEC Analytics — platform intelligence dashboard (C-105 — standalone surface; see §5 / §11a).
 // Reads aggregated metrics from tec-analytics-service via /api/bff/analytics/*.
 // Platform-level + eventual consistency — never presented as financial truth.
@@ -328,7 +330,7 @@ function MySales() {
   );
 }
 
-export default function AnalyticsDashboard() {
+function AnalyticsDashboard() {
   const { user, isLoading, logout } = usePiAuth();
   const { t } = useTranslation();
   const [tab, setTab] = useState<AnTab>('overview');
@@ -431,4 +433,11 @@ export default function AnalyticsDashboard() {
       <BottomNav active={tab} onSelect={setTab} />
     </main>
   );
+}
+
+// The door: a sign-in button before any screen when there is no session
+// (SignInGate — C-123 §10; owner, 2026-10-06). A visit from the Hub arrives
+// signed in (§12) and goes straight through.
+export default function AnalyticsDashboardGated() {
+  return <SignInGate><AnalyticsDashboard /></SignInGate>;
 }
