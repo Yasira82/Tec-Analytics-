@@ -364,7 +364,7 @@ function AnalyticsDashboard() {
 
   return (
     <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: TEC_COLORS.text, fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif' }}>
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 22px calc(96px + env(safe-area-inset-bottom))' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 22px calc(96px + max(env(safe-area-inset-bottom), var(--tec-safe-bottom-fallback, 0px)))' }}>
         <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
           <span style={{ fontSize: 30 }}>📊</span>
           <div>
