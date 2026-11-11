@@ -30,8 +30,6 @@ export async function POST(req: NextRequest) {
         req.nextUrl.hostname,
         process.env.COOKIE_DOMAIN ?? process.env.NEXT_PUBLIC_SSO_DOMAIN ?? undefined,
       );
-      // C-123 LAW 3: none + secure + Partitioned (embedded Pi Browser contexts
-      // block anything less under the third-party cookie phaseout).
       // A session is BOTH cookies, so a refresh renews both.
       //
       // This used to renew the token alone. `tec_user` kept the lifetime the
