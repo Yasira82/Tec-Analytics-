@@ -34,7 +34,14 @@ const APP_SOURCE = 'analytics';
 import { hubPaymentOrigin, isHubReferrer } from '@/lib/pi-network';
 import { piSession } from '@/lib/pi/pi-session';
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://hub.tecosystem.app';
+// Resolve the Hub URL defensively (template fix, propagated 2026-11-11): a misconfigured
+// env — the literal placeholder `C_HUB_URL`, or an empty string — must NEVER become the
+// redirect target; it produced `C_HUB_URL/hub` → 404 (the July 2026 System incident).
+const HUB_FALLBACK = 'https://hub.tecosystem.app';
+const HUB_URL = (() => {
+  const raw = process.env.NEXT_PUBLIC_HUB_URL;
+  return raw && /^https?:\/\//i.test(raw) ? raw.replace(/\/+$/, '') : HUB_FALLBACK;
+})();
 
 /**
  * ADR-007 / C-12 §3: true when the user arrived FROM the Hub (Pi session is
@@ -119,7 +126,7 @@ export const createU2APayment = async (
 
     let settled = false;
     const done = (result: PaymentResult) => { if (settled) return; settled = true; clearTimeout(timer); resolve(result); };
-    const timer = setTimeout(() => done({ status: 'error', success: false, message: 'Payment timed out — please try again.' }), 90_000);
+    const timer = setTimeout(() => done({ status: 'error', success: false, message: PI_WALLET_DID_NOT_OPEN }), 90_000);
 
     const token = getToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-csrf-token': getCsrfToken() };
@@ -182,3 +189,11 @@ export const createU2APayment = async (
     }
   });
 };
+
+/**
+ * Shown when Pi never opened the wallet. After several Pi apps in one Pi
+ * Browser session Pi stops answering until the browser restarts (owner,
+ * 10 Nov 2026) — this names the one fix a person can do.
+ */
+export const PI_WALLET_DID_NOT_OPEN =
+  'The Pi wallet did not open. Close Pi Browser completely, open it again, and try once more.';

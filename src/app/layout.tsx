@@ -6,6 +6,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LocaleProvider } from '@/lib/i18n';
 import { ArrivalReport } from '@/components/pioneer/ArrivalReport';
 import { QuestReturn } from '@/components/pioneer/QuestReturn';
+import { SAFE_BOTTOM_BOOT_SCRIPT } from '@/lib/safe-bottom';
 
 export const metadata: Metadata = {
   title:       'TEC Analytics',
@@ -20,6 +21,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Room under the bottom bar for Android's buttons when Pi Browser reports none (lib/safe-bottom). */}
+        <script dangerouslySetInnerHTML={{ __html: SAFE_BOTTOM_BOOT_SCRIPT }} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
         {/* Global reset — full-bleed dark background (parity with Commerce/Assets).
             Without it the browser's default body margin shows a white frame
