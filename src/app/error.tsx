@@ -1,25 +1,22 @@
 'use client';
 
-// App Router route-error boundary (server/render errors in route segments).
-// Complements <ErrorBoundary> (client component errors) wired in layout.tsx.
+// A screen that broke says so, in the app's language, and offers a way out — try
+// again, or go home. Never a blank page, never a stack trace (E1). The error is
+// reported, not swallowed (C-96).
+
+import Link from 'next/link';
 import { useEffect } from 'react';
-import { TEC_COLORS } from '@yasser172/tec-ui';
+import { reportError } from '@/lib/observability/reportError';
+import { useFleetStrings } from '@/components/fleet/strings';
+import { StateScreen, primaryButton, secondaryLink } from '@/components/fleet/StateScreen';
 
-export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => { console.error('[route-error]', error); }, [error]);
-
+export default function ErrorScreen({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const { s, dir, lang } = useFleetStrings();
+  useEffect(() => { reportError(error, { boundary: 'app/error', digest: error.digest }); }, [error]);
   return (
-    <main style={{ minHeight: '100vh', background: TEC_COLORS.bg, color: TEC_COLORS.text, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif' }}>
-      <div style={{ textAlign: 'center', maxWidth: 360 }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: TEC_COLORS.text, marginBottom: 8 }}>Something went wrong</div>
-        <p style={{ fontSize: 13, color: TEC_COLORS.subtext, marginBottom: 24 }}>{error.message || 'An unexpected error occurred.'}</p>
-        <button
-          onClick={() => reset()}
-          style={{ padding: '12px 24px', background: `linear-gradient(135deg, ${TEC_COLORS.gold}, ${TEC_COLORS.goldDark})`, border: 'none', borderRadius: 12, color: '#0a0800', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-          Try again
-        </button>
-      </div>
-    </main>
+    <StateScreen icon="⚠️" title={s.states.errorTitle} body={s.states.errorBody} dir={dir} lang={lang}>
+      <button type="button" onClick={() => reset()} style={primaryButton}>{s.states.retry}</button>
+      <div><Link href="/" style={secondaryLink}>{s.states.goHome}</Link></div>
+    </StateScreen>
   );
 }
