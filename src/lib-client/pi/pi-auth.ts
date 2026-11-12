@@ -1,5 +1,6 @@
 import { PiAuthResult, TecAuthResponse, PiPaymentData, PiPaymentCallbacks } from '@/types/pi.types';
 import sdk from '@/lib/sdk';
+import { PiRuntime } from '@/lib/pi/PiRuntime';
 
 declare global {
   interface Window {
@@ -20,7 +21,7 @@ declare global {
 const ERRORS = {
   NOT_PI_BROWSER:
     'Please open the app inside Pi Browser to authenticate.\n' +
-    'Instructions: Open Pi Network app → Apps → TEC Analytics',
+    'Instructions: Open Pi Network app → Apps → TEC App',
   SDK_LOAD_FAILED:
     'Pi SDK failed to load. Please check your internet connection and try again.',
   SDK_INIT_FAILED:
@@ -300,8 +301,10 @@ const authenticateWithTimeout = async (timeout?: number): Promise<PiAuthResult> 
     const timer = setTimeout(() => {
       reject(new Error(isPiBrowser() ? ERRORS.AUTH_TIMEOUT : ERRORS.NOT_PI_BROWSER));
     }, effectiveTimeout);
-    window.Pi.authenticate(['username', 'payments'], handleIncompletePayment)
-      .then(result => { clearTimeout(timer); resolve(result); })
+    // Through the PAL (R1): one place to adapt to a Pi SDK change, and the circuit
+    // breaker sees sign-in failures too (TEC-AUDIT-0011).
+    PiRuntime.authenticate(['username', 'payments'], handleIncompletePayment as (p: unknown) => void)
+      .then(result => { clearTimeout(timer); resolve(result as PiAuthResult); })
       .catch(err   => { clearTimeout(timer); reject(err);     });
   });
 };
