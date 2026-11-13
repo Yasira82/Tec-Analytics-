@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { APP_SOURCE } from '@/lib/app-source';
+import { gatewayFetch } from '@/lib/gateway-fetch';
 
 // Server-only proxy to tec-analytics-service through the API Gateway.
 //   gateway path:  ${GW}/api/analytics/*  → service /analytics/*  (service-registry pathRewrite)
@@ -64,7 +65,7 @@ export async function resolveProStatus(req: NextRequest): Promise<boolean> {
   if (process.env.INTERNAL_SECRET) headers['x-internal-key'] = process.env.INTERNAL_SECRET;
 
   try {
-    const res = await fetch(`${GW}/api/commerce/subscriptions/status?app=${encodeURIComponent(APP_SOURCE)}`, { headers, cache: 'no-store' });
+    const res = await gatewayFetch(`${GW}/api/commerce/subscriptions/status?app=${encodeURIComponent(APP_SOURCE)}`, { headers, cache: 'no-store' });
     if (!res.ok) return false;
     const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     // Commerce returns the NESTED contract { success, data: { subscription: {...} } }

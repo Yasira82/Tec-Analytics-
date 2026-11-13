@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveProStatus } from '@/lib/bff/analyticsGateway';
+import { gatewayFetch } from '@/lib/gateway-fetch';
 
 // GET /api/bff/analytics/me/export → the caller's OWN activity as a CSV download.
 //
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
   if (process.env.INTERNAL_SECRET) headers['x-internal-key'] = process.env.INTERNAL_SECRET;
 
   try {
-    const res = await fetch(
+    const res = await gatewayFetch(
       `${GW}/api/analytics/me/activity?limit=${PRO_LIMIT}&days=${PRO_DAYS}`,
       { headers, cache: 'no-store' },
     );
