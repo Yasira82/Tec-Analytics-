@@ -9,6 +9,7 @@
 // subscription); this panel only reflects the live status (P5 — Analytics never stores billing).
 import { useEffect, useState } from 'react';
 import { TEC_COLORS } from '@yasser172/tec-ui';
+import { readProState } from '@/lib/subscription/read-pro-state';
 
 export function ProHistory() {
   const [isPro, setIsPro]   = useState<boolean | null>(null);   // null = still loading
@@ -25,12 +26,9 @@ export function ProHistory() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j: Record<string, unknown> | null) => {
         if (!alive || !j) return; // transient — keep null (hidden), never claim non-Pro
-        const d = (j?.data ?? j ?? {}) as Record<string, unknown>;
-        const s = ((d?.subscription ?? d) ?? {}) as Record<string, unknown>;
-        const end  = typeof s.current_period_end === 'string' ? new Date(s.current_period_end) : null;
-        const live = s.isActive !== false && !(s.isExpired === true || (end !== null && end.getTime() < Date.now()));
-        const plan = String(s.plan ?? '').toUpperCase();
-        setIsPro(live && (plan === 'PRO' || plan === 'ENTERPRISE'));
+        // One reading, fail-closed — the same as the server's (TEC-AUDIT-0044).
+        const st = readProState(j);
+        setIsPro(st.pro);
       })
       .catch(() => { /* transient — leave null (hidden); don't flip a Pro user to locked */ });
     return () => { alive = false; };
