@@ -33,7 +33,7 @@ export async function forwardGatewayGet(
   if (process.env.INTERNAL_SECRET) headers['x-internal-key'] = process.env.INTERNAL_SECRET;
 
   try {
-    const res  = await fetch(`${GW}${gatewayPath}`, { headers, cache: 'no-store' });
+    const res  = await gatewayFetch(`${GW}${gatewayPath}`, { headers, cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) console.error('[bff/gateway] error:', res.status, gatewayPath);
     return NextResponse.json(data, { status: res.status });
