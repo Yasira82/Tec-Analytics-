@@ -15,7 +15,11 @@ function makeReq(opts: { cookies?: Record<string, string>; search?: string } = {
     cookies: {
       get: (name: string) =>
         opts.cookies?.[name] !== undefined ? { value: opts.cookies[name] } : undefined,
+      // What a real request has too: /api/auth/me reports WHICH session cookies arrived.
+      has:    (name: string) => opts.cookies?.[name] !== undefined,
+      getAll: () => Object.entries(opts.cookies ?? {}).map(([name, value]) => ({ name, value })),
     },
+    headers: new Headers(),
     url,
     nextUrl: { searchParams: new URLSearchParams(opts.search ?? ''), origin: 'http://localhost' },
   } as unknown as NextRequest;
