@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveProStatus } from '@/lib/bff/analyticsGateway';
+import { gatewayFetch } from '@/lib/gateway-fetch';
 
 // GET /api/bff/analytics/me/intelligence → Merchant Intelligence (C-105 §6): derived
 // business insight from the caller's OWN activity (peak hour, week-over-week trend, a
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (process.env.INTERNAL_SECRET) headers['x-internal-key'] = process.env.INTERNAL_SECRET;
 
   try {
-    const res = await fetch(`${GW}/api/analytics/me/intelligence?days=${days}`, { headers, cache: 'no-store' });
+    const res = await gatewayFetch(`${GW}/api/analytics/me/intelligence?days=${days}`, { headers, cache: 'no-store' });
     const body = (await res.json().catch(() => ({}))) as { data?: unknown };
     if (!res.ok) return NextResponse.json({ error: 'Could not load intelligence' }, { status: res.status });
     // Reflect the entitlement so the UI can show the Pro badge / upsell (the DATA is the

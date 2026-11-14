@@ -15,7 +15,11 @@ function makeReq(opts: { cookies?: Record<string, string>; search?: string } = {
     cookies: {
       get: (name: string) =>
         opts.cookies?.[name] !== undefined ? { value: opts.cookies[name] } : undefined,
+      // What a real request has too: /api/auth/me reports WHICH session cookies arrived.
+      has:    (name: string) => opts.cookies?.[name] !== undefined,
+      getAll: () => Object.entries(opts.cookies ?? {}).map(([name, value]) => ({ name, value })),
     },
+    headers: new Headers(),
     url,
     nextUrl: { searchParams: new URLSearchParams(opts.search ?? ''), origin: 'http://localhost' },
   } as unknown as NextRequest;
@@ -60,7 +64,7 @@ describe('GET /api/auth/me', () => {
 describe('POST /api/auth/logout', () => {
   it('clears session cookies with attributes matching creation (C-123 §2)', async () => {
     const { POST } = await import('@/app/api/auth/logout/route');
-    const res = await POST();
+    const res = await POST({ nextUrl: { hostname: 'analytics.tecosystem.app' } } as unknown as NextRequest);
     expect(res.status).toBe(200);
     const cleared = res.cookies.getAll();
     const access = cleared.find(c => c.name === 'tec_access_token');
@@ -70,6 +74,17 @@ describe('POST /api/auth/logout', () => {
     expect(access?.secure).toBe(true);
     // partitioned must match creation or the delete targets a different jar
     expect((access as { partitioned?: boolean } | undefined)?.partitioned).toBe(true);
+  });
+
+  it('clears on the SAME domain the cookies were set on — a host-only clear leaves a .tecosystem.app session in place', async () => {
+    vi.stubEnv('COOKIE_DOMAIN', '.tecosystem.app');
+    const { POST } = await import('@/app/api/auth/logout/route');
+    const onMainnet = await POST({ nextUrl: { hostname: 'analytics.tecosystem.app' } } as unknown as NextRequest);
+    expect(onMainnet.cookies.get('tec_access_token')?.domain).toBe('.tecosystem.app');
+    // The paired Testnet host cannot hold a .tecosystem.app cookie, so its clear is host-only too.
+    const onVercel = await POST({ nextUrl: { hostname: 'tec-analytics.vercel.app' } } as unknown as NextRequest);
+    expect(onVercel.cookies.get('tec_access_token')?.domain).toBeUndefined();
+    vi.unstubAllEnvs();
   });
 });
 
