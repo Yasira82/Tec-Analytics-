@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { log } from '@/lib/observability/logger';
+import { arrivedSessionCookies } from '@/lib/auth/session-cookies';
 
-// Server-side session resolver (C-123 §3). The client must never decide
-// "am I logged in?" by reading document.cookie alone — Pi Browser can store a
-// cookie the server sees while hiding it from client JS. The server can always
-// read the request cookies. Fail closed: no/invalid session → 401 (P6).
+// A refused request says WHICH session cookies it carried (names only) — see
+// session-cookies.ts. It is how C-123 §11 was found: `cookies: none` on a page
+// that "only a session could open" meant the guard was not running.
+function refuse(req: NextRequest, reason: string) {
+  const cookies = arrivedSessionCookies(req);
+  log.warn('auth.me_refused', {
+    reason,
+    cookies,
+    cookieCount:   req.cookies.getAll().length,
+    fetchSite:     req.headers.get('sec-fetch-site'),
+    fetchMode:     req.headers.get('sec-fetch-mode'),
+    storageAccess: req.headers.get('sec-fetch-storage-access'),
+  });
+  return NextResponse.json({ authenticated: false, user: null, reason, cookies }, { status: 401 });
+}
+
+// Server-side session resolver (C-123 §3). Fail closed: no session → 401 (P6).
 export async function GET(req: NextRequest) {
   const token   = req.cookies.get('tec_access_token')?.value;
   const userRaw = req.cookies.get('tec_user')?.value;
@@ -14,15 +29,13 @@ export async function GET(req: NextRequest) {
   // token from a cookie Pi Browser did not send in this context is to ask the
   // browser that failed. Open this URL on the phone the moment it happens.
   if (!token || token.trim() === '') {
-    return NextResponse.json({ authenticated: false, user: null, reason: 'no_token' }, { status: 401 });
+    return refuse(req, 'no_token');
   }
   if (!userRaw) {
-    return NextResponse.json({ authenticated: false, user: null, reason: 'no_user' }, { status: 401 });
+    return refuse(req, 'no_user');
   }
 
   try {
-    // This app stores tec_user as encodeURIComponent(JSON) (see sso-callback),
-    // and the cookie layer may decode one level — accept both shapes.
     let user: unknown;
     try {
       user = JSON.parse(userRaw);
@@ -31,6 +44,6 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ authenticated: true, user });
   } catch {
-    return NextResponse.json({ authenticated: false, user: null, reason: 'bad_user' }, { status: 401 });
+    return refuse(req, 'bad_user');
   }
 }

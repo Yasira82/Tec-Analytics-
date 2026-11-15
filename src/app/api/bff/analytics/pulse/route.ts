@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { gatewayFetch } from '@/lib/gateway-fetch';
 
 // GET /api/bff/analytics/pulse → Pi Economy Pulse (C-122 §5.2). A PUBLIC, de-identified
 // read of platform activity signals ("is the Pi economy active?") — no session required,
@@ -19,7 +20,7 @@ export async function GET() {
   if (process.env.INTERNAL_SECRET) headers['x-internal-key'] = process.env.INTERNAL_SECRET;
 
   try {
-    const res  = await fetch(`${GW}/api/analytics/pulse`, { headers, cache: 'no-store' });
+    const res  = await gatewayFetch(`${GW}/api/analytics/pulse`, { headers, cache: 'no-store' });
     const body = (await res.json().catch(() => ({}))) as { data?: unknown };
     if (!res.ok) return NextResponse.json({ error: 'Could not load the pulse' }, { status: res.status });
     return NextResponse.json({ data: body.data ?? null }, {
